@@ -1,0 +1,37 @@
+steps:
+  # Step 1: Build the Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    id: "Build Docker Image"
+    args: [
+      "build",
+      "-t", "gcr.io/$PROJECT_ID/application-agent-services:latest",
+      "."
+    ]
+
+  # Step 2: Push the Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    id: "Push Docker Image"
+    args: [
+      "push",
+      "gcr.io/$PROJECT_ID/application-agent-services:latest"
+    ]
+
+  # Step 3: Initialize Terraform
+  # - name: "hashicorp/terraform"
+  #   id: "Terraform Init"
+  #   entrypoint: "sh"
+  #   args: [
+  #     "-c",
+  #     "terraform init"
+  #   ]
+
+  # # Step 4: Apply Terraform
+  # - name: "hashicorp/terraform"
+  #   id: "Terraform Apply"
+  #   entrypoint: "sh"
+  #   args: [
+  #     "-c",
+  #     "terraform apply -auto-approve -var=\"fastapi_image=gcr.io/$PROJECT_ID/application-agent-services:latest\""
+  #   ]
+
+timeout: "1200s"

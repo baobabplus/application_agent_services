@@ -1,0 +1,75 @@
+# Python-specific files and directories
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.mypy_cache/
+pytest_cache/
+*.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+.env
+.env.*
+
+# Terraform-specific files and directories
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# Google Cloud-specific files
+.gcloudignore
+.git/
+.github/
+README.md
+LICENSE
+cloudbuild.yml
+*.log
+*.tmp
+
+# FastAPI-specific (optional)
+alembic/
+alembic.ini
+
+# Git-specific files
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Editor and IDE files
+.idea/
+.vscode/
+*.iml
+
+# Infrastructure-related files
+infrastructure/
+terraform/
+scripts/
+
+# Other config files
+.pre-commit-config.yaml
+*.swp
+*.swo
+*~
+Thumbs.db
+.DS_Store
+
+# Ignore virtual environments
+venv/
+ENV/
+env/
+*.venv
+
+# Ignore tests and documentation (optional)
+tests/
+docs/

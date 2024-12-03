@@ -1,0 +1,24 @@
+swagger: "2.0"
+info:
+  title: "App Agent Services Gateway"
+  description: "API Gateway for App Agent Services FastAPI application"
+  version: "1.0.0"
+
+x-google-endpoints:
+  - target: "${cloud_run_url}"
+paths:
+  /:
+    get:
+      summary: "Root endpoint"
+      operationId: "root"
+      responses:
+        "200":
+          description: "Successful response"
+      security:
+        - api_key: []
+
+securityDefinitions:
+  api_key:
+    type: "apiKey"
+    name: "key"
+    in: "query"

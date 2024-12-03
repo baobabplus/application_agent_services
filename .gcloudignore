@@ -1,0 +1,77 @@
+# Default files ignored by Google Cloud
+.gcloudignore
+.git/
+.gitignore
+.DS_Store
+*.log
+*.tmp
+
+# Ignore Python-specific files and directories
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+venv/
+ENV/
+env/
+*.venv
+coverage/
+*.coverage
+.tox/
+.mypy_cache/
+pytest_cache/
+*.pytest_cache/
+
+# Ignore Terraform-specific files
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# Ignore temporary or OS-specific files
+*.swp
+*.swo
+*~
+Thumbs.db
+*.bak
+
+# Ignore IDE-specific files
+.idea/
+.vscode/
+*.iml
+
+# Ignore Google Cloud default files
+node_modules/
+yarn.lock
+package-lock.json
+npm-debug.log
+functions/node_modules/
+functions/package-lock.json
+functions/yarn.lock
+functions/npm-debug.log
+
+# Ignore secrets and environment files
+.env
+*.env.*
+
+# Ignore documentation or examples (optional, if not needed in deployment)
+docs/
+examples/
+README.md
+
+# Ignore test files
+tests/
+*.test.*
+*.spec.*
+
+# Ignore temporary folders
+tmp/
+temp/
