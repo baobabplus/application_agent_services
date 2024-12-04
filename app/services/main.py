@@ -66,13 +66,12 @@ class BaseAPI:
 
         # Create the summary
         summary = Summary(
-            period="Current",
             date_range=DateRange(start=start_date, end=end_date),
             total_earnings=incentive_event_response.total_value,
             currency=currency_id,
             details=summary_details,
             action=f"/api/v1/employee/{employee_id}/bonuses/details",
-            event_count=len(incentive_event_response.records),
+            event_count=len(summary_details),
         )
 
         # Build the dashboard response

@@ -13,9 +13,6 @@ class DateRange(BaseModel):
 
 
 class Summary(BaseModel):
-    period: str = Field(
-        ..., description="The period for the summary (e.g., 'Current', 'Previous')."
-    )
     date_range: DateRange = Field(
         ..., description="The date range for the summary (e.g., '4 - 8 Nov')."
     )
