@@ -122,3 +122,26 @@ def generate_slow_payer_description():
             "This endpoint retrieves a list of clients who are slow payers assigned to a specific "
             "responsible employee. An error occurred while fetching the available columns for ordering."
         )
+
+
+def get_week_range(offset: int = 0):
+    """
+    Get the start (Monday) and end (Sunday) dates of a specific week relative to the current week.
+
+    Args:
+        offset (int): The number of weeks to offset from the current week.
+                      0 = current week, -1 = previous week, 1 = next week, etc.
+
+    Returns:
+        tuple: A tuple containing the start (Monday) and end (Sunday) dates of
+        the specified week in 'YYYY-MM-DD' format.
+    """
+    today = datetime.now()
+    current_monday = today - timedelta(days=today.weekday())
+    target_monday = current_monday + timedelta(weeks=offset)
+    target_sunday = target_monday + timedelta(days=6)
+
+    start_of_week_str = target_monday.date()
+    end_of_week_str = target_sunday.date()
+
+    return start_of_week_str, end_of_week_str

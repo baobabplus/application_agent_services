@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List
+from typing import List, Union
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -21,6 +21,19 @@ class EventType(BaseModel):
     )
 
 
+class IncentiveEventMinimalRecord(BaseModel):
+    category: str = Field(
+        ...,
+        description="The display name of the Event Type.",
+        example="Sales",
+    )
+    sum_value: float = Field(
+        ...,
+        description="The numeric value associated with the Incentive Event, such as a monetary amount or points.",
+        example=150.75,
+    )
+
+
 class IncentiveEventRecord(BaseModel):
     id: int = Field(
         ..., description="The unique identifier for the Account.", example=1
@@ -37,7 +50,7 @@ class IncentiveEventRecord(BaseModel):
     )
     currency_id: Many2One
     event_type_id: EventType = Field(..., description="The type of Bonus.")
-    account_id: PaygAccountRecord = Field(
+    account_id: Union[PaygAccountRecord | bool] = Field(
         ...,
         description="A reference to the account associated with the Incentive Event.",
     )
@@ -65,6 +78,11 @@ class IncentiveEventResponse(BaseModel):
         ...,
         description="The name of the model being queried.",
         example="incentive.event",
+    )
+    total_value: float = Field(
+        ...,
+        description="The total value of all records returned.",
+        example=1500.75,
     )
     records: List[IncentiveEventRecord] = Field(
         ..., description="A list of account records."

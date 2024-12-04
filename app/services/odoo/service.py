@@ -86,7 +86,7 @@ class OdooService:
         return employee_id
 
     @check_can_use_application_agent
-    def search_slower_payer_employee(
+    def get_slower_payer_client_service(
         self, employee_id: int, offset: int, limit: int, order: str
     ):
         account_ids = self.search_account_by_segmentation_and_responsible(
@@ -161,6 +161,14 @@ class OdooService:
         prospect_ids = self.model_payg_prospect.search(
             domain=domain, fields=fields, limit=limit, offset=offset, order=order
         )
+        return prospect_ids
+
+    def get_prospect_by_responsible_employee_id(
+        self, employee_id: int, offset: int, limit: int, order: str
+    ):
+        prospect_ids = self.search_prospect_by_responsible_employee(
+            employee_id=employee_id, offset=offset, limit=limit, order=order
+        )
         return ProspectResponse(
             count=len(prospect_ids), models="payg.prospect", records=prospect_ids
         )
@@ -175,7 +183,7 @@ class OdooService:
         order: str,
         event_date_start: Optional[date] = None,
         event_date_end: Optional[date] = None,
-    ):
+    ) -> IncentiveEventResponse:
         # Constants
         MAPPING_EVENT_TYPE = {
             "50-PERCENT-PAID": "Payment",
@@ -210,10 +218,13 @@ class OdooService:
         )
 
         # Enrich records
-        enriched_records = self._enrich_records(record_ids, MAPPING_EVENT_TYPE)
+        enriched_records, total_value = self._enrich_records(
+            record_ids, MAPPING_EVENT_TYPE
+        )
 
         return IncentiveEventResponse(
             count=len(enriched_records),
+            total_value=total_value,
             models="incentive.event",
             records=enriched_records,
         )
@@ -242,6 +253,8 @@ class OdooService:
     ) -> List[dict]:
         """Enrich records with event type and account details."""
         enriched_records = []
+        total_value = 0
+        incentive_event_record = []
         for record in record_ids:
             # Enrich event type
             if record.get("event_type_id"):
@@ -259,7 +272,9 @@ class OdooService:
                 record["account_id"] = PaygAccountRecord(**account_id[0])
 
             enriched_records.append(record)
-        return enriched_records
+            total_value += record["value"]
+            incentive_event_record.append(IncentiveEventRecord(**record))
+        return enriched_records, total_value
 
     def _find_account_id(self, record: dict) -> List[dict]:
         """Find account details for a given record."""

@@ -212,7 +212,9 @@ async def get_slower_payer_client(
     try:
         service = OdooService()
         order = validate_order(order, get_column_order())
-        return service.search_slower_payer_employee(employee_id, offset, limit, order)
+        return service.get_slower_payer_client_service(
+            employee_id, offset, limit, order
+        )
     except UnauthorizedEmployeeException as e:
         raise HTTPException(status_code=403, detail=e.details)
     except EmployeeNotFoundException as e:
@@ -272,7 +274,7 @@ async def get_prospect_by_responsible_employee_id(
     try:
         service = OdooService()
         order = validate_order(order, get_column_order())
-        return service.search_prospect_by_responsible_employee(
+        return service.get_prospect_by_responsible_employee_id(
             employee_id, offset, limit, order
         )
     except UnauthorizedEmployeeException as e:
