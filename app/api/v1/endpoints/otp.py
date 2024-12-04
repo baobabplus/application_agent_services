@@ -40,7 +40,7 @@ def send_otp(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get(
+@router.post(
     "/verify",
     summary="Verify OTP",
     description="""

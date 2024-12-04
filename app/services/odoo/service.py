@@ -1,9 +1,14 @@
 from datetime import date
 from functools import wraps
+from typing import List, Optional
 
 from app.core.odoo_config import settings
 from app.schemas.employee import EmployeeSchema
-from app.schemas.incentive_event import IncentiveEventRecord, IncentiveEventResponse
+from app.schemas.incentive_event import (
+    EventType,
+    IncentiveEventRecord,
+    IncentiveEventResponse,
+)
 from app.schemas.payg_account import PaygAccountRecord, PaygAccountResponse
 from app.schemas.prospect import ProspectRecord, ProspectResponse
 from app.services.odoo.exceptions import UnauthorizedEmployeeException
@@ -168,21 +173,94 @@ class OdooService:
         offset: int,
         limit: int,
         order: str,
-        event_date_start: date = False,
-        event_date_end: date = False,
+        event_date_start: Optional[date] = None,
+        event_date_end: Optional[date] = None,
     ):
+        # Constants
+        EVENT_TYPE = [
+            "ACTIVATION",
+            "RESELL-AFTER-REPO",
+            "DIRECT-SALE",
+            "REPO-EARLY",
+            "REPO-LATE",
+        ]
+        MAPPING_EVENT_TYPE = {
+            "ACTIVATION": "Sales",
+            "RESELL-AFTER-REPO": "Sales",
+            "DIRECT-SALE": "Sales",
+            "REPO-EARLY": "Repossession",
+            "REPO-LATE": "Repossession",
+        }
+
+        # Build domain filters
+        domain = self._build_bonus_domain(
+            employee_id, event_date_start, event_date_end, EVENT_TYPE
+        )
+
+        # Fetch fields and records
+        fields = list(IncentiveEventRecord.model_fields.keys())
+        record_ids = self.model_incentive_event.search(
+            domain=domain, fields=fields, limit=limit, offset=offset, order=order
+        )
+
+        # Enrich records
+        enriched_records = self._enrich_records(record_ids, MAPPING_EVENT_TYPE)
+
+        return IncentiveEventResponse(
+            count=len(enriched_records),
+            models="incentive.event",
+            records=enriched_records,
+        )
+
+    def _build_bonus_domain(
+        self,
+        employee_id: int,
+        event_date_start: Optional[date],
+        event_date_end: Optional[date],
+        event_type: List[str],
+    ) -> List:
+        """Build the domain for searching incentive events."""
         domain = [
             ["beneficiary_employee_id", "=", employee_id],
             ["event_status", "=", "validated"],
+            ["event_type_id.name", "in", event_type],
         ]
         if event_date_start:
             domain.append(["event_date", ">=", event_date_start.strftime("%Y-%m-%d")])
         if event_date_end:
             domain.append(["event_date", "<=", event_date_end.strftime("%Y-%m-%d")])
-        fields = list(IncentiveEventRecord.model_fields.keys())
-        record_ids = self.model_incentive_event.search(
-            domain=domain, fields=fields, limit=limit, offset=offset, order=order
+        return domain
+
+    def _enrich_records(
+        self, record_ids: List[dict], mapping_event_type: dict
+    ) -> List[dict]:
+        """Enrich records with event type and account details."""
+        enriched_records = []
+        for record in record_ids:
+            # Enrich event type
+            if record.get("event_type_id"):
+                record["event_type_id"] = EventType(
+                    id=record["event_type_id"][0],
+                    name=record["event_type_id"][1],
+                    category=mapping_event_type.get(
+                        record["event_type_id"][1], "Other"
+                    ),
+                )
+
+            # Enrich account details
+            if record.get("account_id"):
+                account_id = self._find_account_id(record)
+                record["account_id"] = PaygAccountRecord(**account_id[0])
+
+            enriched_records.append(record)
+        return enriched_records
+
+    def _find_account_id(self, record: dict) -> List[dict]:
+        """Find account details for a given record."""
+        fields = list(PaygAccountRecord.model_fields.keys())
+        account_id = self.model_payg_account.search(
+            domain=[["id", "=", record["account_id"][0]]],
+            fields=fields,
+            limit=1,
         )
-        return IncentiveEventResponse(
-            count=len(record_ids), models="incentive.event", records=record_ids
-        )
+        return account_id

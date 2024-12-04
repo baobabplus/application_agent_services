@@ -4,6 +4,21 @@ from typing import List
 from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.odoo_record import Many2One
+from app.schemas.payg_account import PaygAccountRecord
+
+
+class EventType(BaseModel):
+    id: int = Field(
+        ..., description="The unique identifier for the Event Type.", example=1
+    )
+    name: str = Field(
+        ..., description="The name of the Event Type.", example="ACTIVATION"
+    )
+    category: str = Field(
+        ...,
+        description="The display name of the Event Type.",
+        example="Sales",
+    )
 
 
 class IncentiveEventRecord(BaseModel):
@@ -20,10 +35,11 @@ class IncentiveEventRecord(BaseModel):
         description="The numeric value associated with the Incentive Event, such as a monetary amount or points.",
         example=150.75,
     )
-    event_type_id: Many2One = Field(
+    currency_id: Many2One
+    event_type_id: EventType = Field(..., description="The type of Bonus.")
+    account_id: PaygAccountRecord = Field(
         ...,
-        description="The type of Bonus.",
-        examples=[{"id": 1, "name": "Activation"}],
+        description="A reference to the account associated with the Incentive Event.",
     )
 
     @field_validator("event_date", mode="before")

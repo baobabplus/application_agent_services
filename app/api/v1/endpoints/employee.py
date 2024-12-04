@@ -4,6 +4,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Query  # ,Depends
 
 from app.schemas.employee import EmployeeSchema
+from app.schemas.incentive_event import IncentiveEventResponse
 from app.schemas.payg_account import PaygAccountResponse
 from app.schemas.prospect import ProspectResponse
 from app.services.odoo.exceptions import (
@@ -11,11 +12,7 @@ from app.services.odoo.exceptions import (
     UnauthorizedEmployeeException,
 )
 from app.services.odoo.service import OdooService
-from app.utils.main import (  # verify_jwt
-    generate_slow_payer_description,
-    get_column_order,
-    validate_order,
-)
+from app.utils.main import get_column_order, validate_order  # verify_jwt
 
 router = APIRouter()
 
@@ -70,7 +67,39 @@ async def get_employee_by_phone_number(phone_number: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{employee_id}/bonuses")
+@router.get(
+    "/{employee_id}/bonuses",
+    response_model=IncentiveEventResponse,
+    summary="Retrieve bonuses for a specific employee",
+    description=(
+        "Fetch a paginated list of bonuses for a given employee. "
+        "You can filter results by date range (`event_date_start` and `event_date_end`) "
+        "and sort them using the `order` parameter."
+    ),
+    responses={
+        200: {
+            "description": "List of bonuses retrieved successfully.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "bonuses": [
+                            {
+                                "id": 1,
+                                "amount": 500.0,
+                                "event_date": "2023-12-04",
+                                "description": "Performance bonus",
+                            }
+                        ],
+                        "total": 1,
+                    }
+                }
+            },
+        },
+        403: {"description": "Unauthorized access to the employee's bonuses."},
+        404: {"description": "Employee not found."},
+        500: {"description": "Internal server error."},
+    },
+)
 async def get_bonus_by_employee_id(
     employee_id: int,
     offset: int = 0,
@@ -103,8 +132,42 @@ async def get_bonus_by_employee_id(
 @router.get(
     "/{employee_id}/slower-payer",
     response_model=PaygAccountResponse,
-    summary="Retrieving the list of clients who are slow payers by responsible employee.",
-    description=generate_slow_payer_description(),
+    summary="Retrieve slow-paying clients by employee",
+    description=(
+        "Fetch a paginated list of clients identified as slow payers, "
+        "managed by a specific responsible employee. "
+        "Results can be sorted and paginated."
+    ),
+    responses={
+        200: {
+            "description": "List of account records retrieved successfully.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "count": 2,
+                        "models": "payg.account",
+                        "records": [
+                            {
+                                "id": 1,
+                                "account_ext_id": "ACC12345",
+                                "create_date": "2023-12-20T09:26:07",
+                                "client_id": {"id": 101, "name": "Acme Corporation"},
+                            },
+                            {
+                                "id": 2,
+                                "account_ext_id": "ACC54321",
+                                "create_date": "2023-12-18T14:15:00",
+                                "client_id": {"id": 102, "name": "Global Industries"},
+                            },
+                        ],
+                    }
+                }
+            },
+        },
+        403: {"description": "Unauthorized access to the employee's data."},
+        404: {"description": "Employee not found."},
+        500: {"description": "Internal server error."},
+    },
 )
 async def get_slower_payer_client(
     employee_id: int,
@@ -126,7 +189,46 @@ async def get_slower_payer_client(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{employee_id}/prospects", response_model=ProspectResponse)
+@router.get(
+    "/{employee_id}/prospects",
+    response_model=ProspectResponse,
+    summary="Retrieve prospects by responsible employee",
+    description=(
+        "Fetch a paginated list of prospects managed by a specific responsible employee. "
+        "The results include details such as the prospect's external ID, creation date, "
+        "and current state."
+    ),
+    responses={
+        200: {
+            "description": "List of prospect records retrieved successfully.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "count": 2,
+                        "models": "prospect",
+                        "records": [
+                            {
+                                "id": 1,
+                                "prospect_ext_id": "PROS12345",
+                                "create_date": "2023-12-20T09:26:07",
+                                "state": "APPROVED",
+                            },
+                            {
+                                "id": 2,
+                                "prospect_ext_id": "PROS54321",
+                                "create_date": "2023-12-19T15:45:00",
+                                "state": False,
+                            },
+                        ],
+                    }
+                }
+            },
+        },
+        403: {"description": "Unauthorized access to the employee's data."},
+        404: {"description": "Employee not found."},
+        500: {"description": "Internal server error."},
+    },
+)
 async def get_prospect_by_responsible_employee_id(
     employee_id: int,
     offset: int = 0,
