@@ -27,3 +27,4 @@ class OTPResponse(BaseModel):
     success: bool = Field(
         ..., description="Indicates whether the operation was successful."
     )
+    access_token: str = Field(None, description="The access token for the employee.")

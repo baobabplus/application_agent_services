@@ -55,8 +55,8 @@ gcloud run deploy app-agent-services \
 --source . \
 --region europe-west2 \
 --allow-unauthenticated \
---update-env-vars "ODOO_URL=https://odoo-preprod.baobabplus.com,ODOO_DB=preprod-db,ODOO_USERNAME=automations,ODOO_UUID=12,ODOO_SLOW_PAYER_SEGMENTATION_LIST=4,OTP_INTERVAL=30,ENV=PREPROD,OTP_VALID_WINDOW=30" \
---set-secrets "ODOO_PASSWORD=odoo-automations:latest,OTP_SECRET=otp-secret:latest" \
+--update-env-vars "ODOO_URL=https://odoo-preprod.baobabplus.com,ODOO_DB=preprod-db,ODOO_USERNAME=automations,ODOO_UUID=12,ODOO_SLOW_PAYER_SEGMENTATION_LIST=4,OTP_INTERVAL=30,ENV=PREPROD,OTP_VALID_WINDOW=30,ODOO_JWT_EXPIRE=7" \
+--set-secrets "ODOO_PASSWORD=odoo-automations:latest,OTP_SECRET=otp-secret:latest,ODOO_JWT_SECRET=odoo-jwt-secret:latest" \
 --timeout=30
 ```
 ## Environment Variable Structure

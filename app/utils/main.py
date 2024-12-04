@@ -1,12 +1,57 @@
 import base64
 import hashlib
 import re
+from datetime import datetime, timedelta, timezone
 
+import jwt
 import phonenumbers
 import pyotp
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jwt.exceptions import InvalidTokenError
 from phonenumbers import NumberParseException, geocoder
 
+from app.core.odoo_config import settings as odoo_settings
 from app.core.otp_config import settings as otp_settings
+
+ALGORITHM = "HS256"
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
+def verify_jwt(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(
+            token, odoo_settings.odoo_jwt_secret, algorithms=[ALGORITHM]
+        )
+
+        employee_id = payload.get("sub")
+        if employee_id is None:
+            raise credentials_exception
+
+        return {"employee_id": employee_id}
+    except InvalidTokenError:
+        raise credentials_exception
+
+
+def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(
+            days=odoo_settings.odoo_jwt_expire
+        )
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(
+        to_encode, odoo_settings.odoo_jwt_secret, algorithm=ALGORITHM
+    )
+    return encoded_jwt
 
 
 def validate_and_extract_country(phone_number: str) -> dict:

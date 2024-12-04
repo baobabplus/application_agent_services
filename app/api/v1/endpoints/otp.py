@@ -57,7 +57,7 @@ def verify_otp(
         ...,
         description="The phone number, including the country code (e.g., 234XXXXXXXXXX)",
     ),
-    otp: str = Query(..., description="OTP to verify"),
+    otp: str = Query(..., description="OTP to verify", max_length=6, min_length=6),
 ):
     try:
         my_otp = OTP(phone_number)

@@ -44,7 +44,7 @@ class OTP:
 
     def send_otp(self):
         employee_id = self.odoo_service.search_employee_by_phone(self.phone_number)
-        if employee_id:
+        if employee_id and employee_id[0]["can_use_application_agent"]:
             secret = self._generate_secret()
             otp = generate_totp(secret)
             self.can_generate_new_otp()
@@ -97,6 +97,11 @@ class OTP:
                 {"message": "Invalid OTP", "details": "The OTP is already used"}
             )
         self.odoo_service.deactive_otp_by_phone(self.phone_number)
+        # access_token = create_access_token({"sub": rec_id[0]["res_id"]})
         return OTPResponse(
-            otp=otp, message="OTP Verified", record_id=rec_id[0]["res_id"], success=True
+            otp=otp,
+            message="OTP Verified",
+            record_id=rec_id[0]["res_id"],
+            success=True,
+            # access_token=access_token
         )

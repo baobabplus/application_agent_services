@@ -1,12 +1,17 @@
+from datetime import date
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query  # ,Depends
 
 from app.schemas.employee import EmployeeSchema
 from app.schemas.payg_account import PaygAccountResponse
 from app.schemas.prospect import ProspectResponse
+from app.services.odoo.exceptions import (
+    EmployeeNotFoundException,
+    UnauthorizedEmployeeException,
+)
 from app.services.odoo.service import OdooService
-from app.utils.main import (
+from app.utils.main import (  # verify_jwt
     generate_slow_payer_description,
     get_column_order,
     validate_order,
@@ -55,13 +60,17 @@ async def get_employee_by_phone_number(phone_number: str):
     try:
         service = OdooService()
         return service.search_employee_by_phone(phone_number)
+    except UnauthorizedEmployeeException as e:
+        raise HTTPException(status_code=403, detail=e.details)
+    except EmployeeNotFoundException as e:
+        raise HTTPException(status_code=404, detail=e.details)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=e.args[0]["details"])
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{employee_id}/bonus")
+@router.get("/{employee_id}/bonuses")
 async def get_bonus_by_employee_id(
     employee_id: int,
     offset: int = 0,
@@ -69,11 +78,24 @@ async def get_bonus_by_employee_id(
     order: str = Query(
         "event_date desc", description="Format: 'column asc' or 'column desc'"
     ),
+    event_date_start: date = Query(
+        None, description="Filter by event date start (YYYY-MM-DD)"
+    ),
+    event_date_end: date = Query(
+        None, description="Filter by event date end (YYYY-MM-DD)"
+    ),
+    # user_context: dict = Depends(verify_jwt)
 ):
     try:
         service = OdooService()
         order = validate_order(order, get_column_order(["event_date"]))
-        return service.search_bonus_by_employee(employee_id, offset, limit, order)
+        return service.search_bonus_by_employee(
+            employee_id, offset, limit, order, event_date_start, event_date_end
+        )
+    except UnauthorizedEmployeeException as e:
+        raise HTTPException(status_code=403, detail=e.details)
+    except EmployeeNotFoundException as e:
+        raise HTTPException(status_code=404, detail=e.details)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -96,11 +118,15 @@ async def get_slower_payer_client(
         service = OdooService()
         order = validate_order(order, get_column_order())
         return service.search_slower_payer_employee(employee_id, offset, limit, order)
+    except UnauthorizedEmployeeException as e:
+        raise HTTPException(status_code=403, detail=e.details)
+    except EmployeeNotFoundException as e:
+        raise HTTPException(status_code=404, detail=e.details)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{employee_id}/prospect", response_model=ProspectResponse)
+@router.get("/{employee_id}/prospects", response_model=ProspectResponse)
 async def get_prospect_by_responsible_employee_id(
     employee_id: int,
     offset: int = 0,
@@ -115,5 +141,9 @@ async def get_prospect_by_responsible_employee_id(
         return service.search_prospect_by_responsible_employee(
             employee_id, offset, limit, order
         )
+    except UnauthorizedEmployeeException as e:
+        raise HTTPException(status_code=403, detail=e.details)
+    except EmployeeNotFoundException as e:
+        raise HTTPException(status_code=404, detail=e.details)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

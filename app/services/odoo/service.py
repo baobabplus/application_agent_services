@@ -1,8 +1,12 @@
+from datetime import date
+from functools import wraps
+
 from app.core.odoo_config import settings
 from app.schemas.employee import EmployeeSchema
 from app.schemas.incentive_event import IncentiveEventRecord, IncentiveEventResponse
 from app.schemas.payg_account import PaygAccountRecord, PaygAccountResponse
 from app.schemas.prospect import ProspectRecord, ProspectResponse
+from app.services.odoo.exceptions import UnauthorizedEmployeeException
 from app.utils.main import validate_and_extract_country
 
 from .client import OdooAPI
@@ -27,10 +31,29 @@ class OdooService:
         )
 
     # hr_employee methods
+    def check_can_use_application_agent(method):
+        @wraps(method)
+        def wrapper(self, employee_id: int, *args, **kwargs):
+            fields = ["id", "can_use_application_agent"]
+            employee = self.model_hr_employee.search(
+                domain=[["id", "=", employee_id]], fields=fields, limit=1
+            )
+            if not employee or (
+                employee and not employee[0]["can_use_application_agent"]
+            ):
+                raise UnauthorizedEmployeeException(
+                    "Unauthorized employee",
+                    f"Employee ({employee_id}) is not authorized to use the application agent",
+                )
+            return method(self, employee_id, *args, **kwargs)
+
+        return wrapper
+
+    @check_can_use_application_agent
     def search_employee_by_id(self, employee_id: int):
         fields = list(EmployeeSchema.model_fields.keys())
         employee_id = self.model_hr_employee.search(
-            domain=[["id", "=", employee_id]], fields=fields
+            domain=[["id", "=", employee_id]], fields=fields, limit=1
         )
 
         return employee_id
@@ -48,20 +71,28 @@ class OdooService:
                     "details": f"Employee with phone number {phone_number} not found",
                 }
             )
+        elif not employee_id and employee_id[0]["can_use_application_agent"]:
+            raise UnauthorizedEmployeeException(
+                {
+                    "message": "Unauthorized employee",
+                    "details": "Employee is not authorized to use the application agent",
+                }
+            )
         return employee_id
 
+    @check_can_use_application_agent
     def search_slower_payer_employee(
-        self, responsible_employee_id: int, offset: int, limit: int, order: str
+        self, employee_id: int, offset: int, limit: int, order: str
     ):
         account_ids = self.search_account_by_segmentation_and_responsible(
-            responsible_employee_id, offset, limit, order
+            employee_id, offset, limit, order
         )
         return PaygAccountResponse(
             count=len(account_ids), models="payg.account", records=account_ids
         )
 
     # sms_otp methods
-    def search_last_otp_by_phone(self, phone_number: int):
+    def search_last_otp_by_phone(self, phone_number: str):
         domain = [["phone_number", "=", phone_number], ["active", "in", [True, False]]]
         otp_id = self.model_sms_otp.search(
             domain=domain,
@@ -92,8 +123,9 @@ class OdooService:
             self.model_sms_otp.write(otp_id["id"], {"active": False})
 
     # payg_account methods
+    @check_can_use_application_agent
     def search_account_by_segmentation_and_responsible(
-        self, responsible_employee_id: int, offset: int, limit: int, order: str
+        self, employee_id: int, offset: int, limit: int, order: str
     ):
         segmentations = settings.odoo_account_segmentation_slow_payer.split(",")
         segmentation_ids = [
@@ -103,7 +135,7 @@ class OdooService:
         ]
         domain = [
             ["account_segmentation_id", "in", segmentation_ids],
-            ["responsible_agent_employee_id", "=", responsible_employee_id],
+            ["responsible_agent_employee_id", "=", employee_id],
         ]
         fields = list(PaygAccountRecord.model_fields.keys())
         account_id = self.model_payg_account.search(
@@ -113,11 +145,12 @@ class OdooService:
         return account_id
 
     # payg_prospect methods
+    @check_can_use_application_agent
     def search_prospect_by_responsible_employee(
-        self, responsible_employee_id: int, offset: int, limit: int, order: str
+        self, employee_id: int, offset: int, limit: int, order: str
     ):
         domain = [
-            ["responsible_employee_id", "=", responsible_employee_id],
+            ["responsible_employee_id", "=", employee_id],
         ]
         fields = list(ProspectRecord.model_fields.keys())
         prospect_ids = self.model_payg_prospect.search(
@@ -128,13 +161,24 @@ class OdooService:
         )
 
     # incentive.event methods
+    @check_can_use_application_agent
     def search_bonus_by_employee(
-        self, employee_id: int, offset: int, limit: int, order: str
+        self,
+        employee_id: int,
+        offset: int,
+        limit: int,
+        order: str,
+        event_date_start: date = False,
+        event_date_end: date = False,
     ):
         domain = [
             ["beneficiary_employee_id", "=", employee_id],
             ["event_status", "=", "validated"],
         ]
+        if event_date_start:
+            domain.append(["event_date", ">=", event_date_start.strftime("%Y-%m-%d")])
+        if event_date_end:
+            domain.append(["event_date", "<=", event_date_end.strftime("%Y-%m-%d")])
         fields = list(IncentiveEventRecord.model_fields.keys())
         record_ids = self.model_incentive_event.search(
             domain=domain, fields=fields, limit=limit, offset=offset, order=order
