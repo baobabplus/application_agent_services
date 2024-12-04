@@ -177,24 +177,30 @@ class OdooService:
         event_date_end: Optional[date] = None,
     ):
         # Constants
-        EVENT_TYPE = [
-            "ACTIVATION",
-            "RESELL-AFTER-REPO",
-            "DIRECT-SALE",
-            "REPO-EARLY",
-            "REPO-LATE",
-        ]
         MAPPING_EVENT_TYPE = {
+            "50-PERCENT-PAID": "Payment",
+            "75-PERCENT-PAID": "Payment",
             "ACTIVATION": "Sales",
-            "RESELL-AFTER-REPO": "Sales",
-            "DIRECT-SALE": "Sales",
+            "BUDG OPE": "BUDG OP",
+            "HC-END-SEG-A": "HC END",
+            "HC-END-SEG-B": "HC END",
+            "HC-END-SEG-C": "HC END",
+            "HC-END-SEG-D": "HC END",
+            "PAIEMENT EXCL DP": "Payment",
+            "PAIEMENT MANUEL": "Payment",
             "REPO-EARLY": "Repossession",
             "REPO-LATE": "Repossession",
+            "RESELL-AFTER-REPO": "Sales",
+            "RPP": "RPP",
+            "WRITE OFF": "WRITE OFF",
+            "UPSELL": "Sales",
+            "DIRECT-SALE": "Sales",
+            "MANUAL_EVENT": "Regularisation",
         }
-
+        event_typ = list(MAPPING_EVENT_TYPE)
         # Build domain filters
         domain = self._build_bonus_domain(
-            employee_id, event_date_start, event_date_end, EVENT_TYPE
+            employee_id, event_date_start, event_date_end, event_typ
         )
 
         # Fetch fields and records
@@ -223,7 +229,7 @@ class OdooService:
         domain = [
             ["beneficiary_employee_id", "=", employee_id],
             ["event_status", "=", "validated"],
-            ["event_type_id.name", "in", event_type],
+            ["event_type_id.code", "in", event_type],
         ]
         if event_date_start:
             domain.append(["event_date", ">=", event_date_start.strftime("%Y-%m-%d")])
