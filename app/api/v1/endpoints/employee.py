@@ -82,15 +82,47 @@ async def get_employee_by_phone_number(phone_number: str):
             "content": {
                 "application/json": {
                     "example": {
-                        "bonuses": [
+                        "count": 8,
+                        "models": "incentive.event",
+                        "records": [
                             {
                                 "id": 1,
-                                "amount": 500.0,
-                                "event_date": "2023-12-04",
-                                "description": "Performance bonus",
-                            }
+                                "event_date": "2024-09-25",
+                                "value": 2000,
+                                "currency_id": {"id": 105, "display_name": "MGA"},
+                                "event_type_id": {
+                                    "id": 6,
+                                    "name": "75-PERCENT-PAID",
+                                    "category": "Payment",
+                                },
+                                "account_id": {
+                                    "id": 2,
+                                    "account_ext_id": "AC9354564",
+                                    "create_date": "2023-11-25T13:08:04",
+                                    "client_id": {"id": 6, "display_name": "Jone Doe"},
+                                },
+                            },
+                            {
+                                "id": 9,
+                                "event_date": "2024-09-25",
+                                "value": 300,
+                                "currency_id": {"id": 105, "display_name": "MGA"},
+                                "event_type_id": {
+                                    "id": 27,
+                                    "name": "RPP",
+                                    "category": "RPP",
+                                },
+                                "account_id": {
+                                    "id": 888,
+                                    "account_ext_id": "AC11584444",
+                                    "create_date": "2024-09-14T06:03:51",
+                                    "client_id": {
+                                        "id": 5432,
+                                        "display_name": "Lorem Ipsum",
+                                    },
+                                },
+                            },
                         ],
-                        "total": 1,
                     }
                 }
             },
