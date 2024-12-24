@@ -1,57 +1,107 @@
 import base64
 import hashlib
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 
-import jwt
 import phonenumbers
 import pyotp
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jwt.exceptions import InvalidTokenError
+from fastapi.security import (
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+    OAuth2PasswordBearer,
+)
+from jose import JWTError, jwt
 from phonenumbers import NumberParseException, geocoder
 
 from app.core.odoo_config import settings as odoo_settings
 from app.core.otp_config import settings as otp_settings
+from app.services.odoo.exceptions import (
+    EmployeeNotFoundException,
+    UnauthorizedEmployeeException,
+)
 
 ALGORITHM = "HS256"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+security = HTTPBearer()
 
 
-def verify_jwt(token: str = Depends(oauth2_scheme)):
+def verify_access_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    token = credentials.credentials
     try:
         payload = jwt.decode(
-            token, odoo_settings.odoo_jwt_secret, algorithms=[ALGORITHM]
+            token, odoo_settings.access_token_secret, algorithms=[ALGORITHM]
         )
+        user_id = payload.get("sub")
+        exp = payload.get("exp")
 
-        employee_id = payload.get("sub")
-        if employee_id is None:
+        if exp and datetime.now(tz=timezone.utc).timestamp() > exp:
+            raise HTTPException(status_code=401, detail="Token expired")
+
+        if user_id is None:
             raise credentials_exception
+        return payload
 
-        return {"employee_id": employee_id}
-    except InvalidTokenError:
+    except JWTError as e:
+        logging.error(f"JWTError: {e}")
+        raise credentials_exception
+    except Exception as e:
+        logging.error(f"Exception: {e}")
         raise credentials_exception
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
+def create_access_token(data: dict):
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            days=odoo_settings.odoo_jwt_expire
-        )
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
-        to_encode, odoo_settings.odoo_jwt_secret, algorithm=ALGORITHM
+    if "sub" in to_encode:
+        to_encode["sub"] = str(to_encode["sub"])
+    expire = datetime.now(tz=timezone.utc) + timedelta(
+        minutes=odoo_settings.access_token_expire
     )
-    return encoded_jwt
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, odoo_settings.access_token_secret, algorithm=ALGORITHM)
+
+
+def create_refresh_token(data: dict):
+    to_encode = data.copy()
+    if "sub" in to_encode:
+        to_encode["sub"] = str(to_encode["sub"])
+    expire = datetime.now(tz=timezone.utc) + timedelta(
+        days=odoo_settings.refresh_token_expire
+    )
+    to_encode.update({"exp": expire})
+    return jwt.encode(
+        to_encode, odoo_settings.refresh_token_secret, algorithm=ALGORITHM
+    )
+
+
+def verify_refresh_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(
+            token, odoo_settings.refresh_token_secret, algorithms=[ALGORITHM]
+        )
+        return {
+            "payload": payload,
+            "token": token,
+        }
+    except JWTError as e:
+        logging.error(f"JWTError: {e}")
+        raise credentials_exception
+    except Exception as e:
+        logging.error(f"Exception: {e}")
+        raise credentials_exception
 
 
 def validate_and_extract_country(phone_number: str) -> dict:
@@ -145,3 +195,52 @@ def get_week_range(offset: int = 0):
     end_of_week_str = target_sunday.date()
 
     return start_of_week_str, end_of_week_str
+
+
+def filter_latest_event_by_status(data):
+    for item in data:
+        item["start_date"] = datetime.strptime(item["start_date"], "%Y-%m-%d")
+        item["end_date"] = datetime.strptime(item["end_date"], "%Y-%m-%d")
+
+    latest_by_status = {}
+    for item in data:
+        status = item["status"]
+        if (
+            status not in latest_by_status
+            or item["start_date"] > latest_by_status[status]["start_date"]
+        ):
+            latest_by_status[status] = item
+
+    for item in latest_by_status.values():
+        item["start_date"] = item["start_date"]
+        item["end_date"] = item["end_date"]
+
+    return latest_by_status
+
+
+def handle_exceptions(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    return wrapper
+
+
+def handle_exceptions_employee(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except UnauthorizedEmployeeException as e:
+            raise HTTPException(status_code=403, detail=e.details)
+        except EmployeeNotFoundException as e:
+            raise HTTPException(status_code=404, detail=e.details)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    return wrapper

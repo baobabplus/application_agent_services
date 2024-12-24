@@ -13,8 +13,10 @@ class Settings(BaseSettings):
     odoo_account_segmentation_slow_payer: str = Field(
         ..., alias="ODOO_SLOW_PAYER_SEGMENTATION_LIST"
     )
-    odoo_jwt_secret: str = Field(..., alias="ODOO_JWT_SECRET")
-    odoo_jwt_expire: int = Field(..., alias="ODOO_JWT_EXPIRE")
+    access_token_secret: str = Field(..., alias="ACCESS_TOKEN_SECRET")
+    refresh_token_secret: str = Field(..., alias="REFRESH_TOKEN_SECRET")
+    access_token_expire: int = Field(..., alias="ACCESS_TOKEN_EXPIRE")
+    refresh_token_expire: int = Field(..., alias="REFRESH_TOKEN_EXPIRE")
 
     class Config:
         env_file = ".env"

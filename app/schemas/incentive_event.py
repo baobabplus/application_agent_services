@@ -3,6 +3,7 @@ from typing import List, Union
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.incentive_report import IncentiveReportSimple
 from app.schemas.odoo_record import Many2One
 from app.schemas.payg_account import PaygAccountRecord
 
@@ -86,4 +87,10 @@ class IncentiveEventResponse(BaseModel):
     )
     records: List[IncentiveEventRecord] = Field(
         ..., description="A list of account records."
+    )
+
+
+class IncentiveEventCustomResponse(BaseModel):
+    report_ids: List[IncentiveReportSimple] = Field(
+        ..., description="A list of Incentive Report records."
     )

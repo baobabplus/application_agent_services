@@ -21,10 +21,3 @@ class OTPResponse(BaseModel):
     message: str = Field(
         ..., description="A message describing the outcome of the operation."
     )
-    record_id: int = Field(
-        ..., description="The ID of the record associated with the OTP."
-    )
-    success: bool = Field(
-        ..., description="Indicates whether the operation was successful."
-    )
-    access_token: str = Field(None, description="The access token for the employee.")

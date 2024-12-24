@@ -16,7 +16,7 @@ class Summary(BaseModel):
     date_range: DateRange = Field(
         ..., description="The date range for the summary (e.g., '4 - 8 Nov')."
     )
-    total_earnings: int = Field(
+    total_earnings: float = Field(
         ..., description="The total earnings for the specified period."
     )
     currency: Union[Many2One | None] = Field(
@@ -31,7 +31,7 @@ class Summary(BaseModel):
     )
 
 
-class Component(BaseModel):
+class Tasks(BaseModel):
     icon: str = Field(
         ...,
         description="The icon representing the component (e.g., a task or category).",
@@ -43,9 +43,12 @@ class Component(BaseModel):
     )
 
 
-class DashboardResponse(BaseModel):
+class HomepageResponse(BaseModel):
     summary: Summary = Field(
         ...,
         description="The summary section of the dashboard, including totals and actions.",
     )
-    components: List[Component] = Field(..., description="A list of components.")
+    tasks_action: str = Field(
+        "/api/v1/screen/homepage/tasks",
+        description="The endpoint for fetching tasks data for the dashboard.",
+    )

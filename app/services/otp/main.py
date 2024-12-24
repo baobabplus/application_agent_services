@@ -3,8 +3,11 @@ from datetime import datetime, timezone
 from app.core import settings as main_settings
 from app.core.otp_config import settings
 from app.schemas.otp import OTPResponse
+from app.schemas.token import TokenResponse
 from app.services.odoo.service import OdooService
 from app.utils.main import (
+    create_access_token,
+    create_refresh_token,
     generate_secret,
     generate_totp,
     validate_and_extract_country,
@@ -60,13 +63,11 @@ class OTP:
             is_prod = main_settings.service_env.upper() not in ["LOCAL", "PREPROD"]
             message = f"OTP Sent to {self.phone_number}"
             if is_prod:
-                return OTPResponse(message=message, success=True, record_id=employee_id)
+                return OTPResponse(message=message)
             else:
                 return OTPResponse(
                     message=message,
-                    success=True,
                     otp=otp,
-                    record_id=employee_id,
                 )
         else:
             raise ValueError(
@@ -76,7 +77,7 @@ class OTP:
                 }
             )
 
-    def verify_otp(self, otp):
+    def verify_otp(self, otp) -> TokenResponse:
         secret = self._generate_secret()
         is_valid = validate_totp(secret, otp)
         if not is_valid:
@@ -97,11 +98,15 @@ class OTP:
                 {"message": "Invalid OTP", "details": "The OTP is already used"}
             )
         self.odoo_service.deactive_otp_by_phone(self.phone_number)
-        # access_token = create_access_token({"sub": rec_id[0]["res_id"]})
-        return OTPResponse(
-            otp=otp,
-            message="OTP Verified",
-            record_id=rec_id[0]["res_id"],
-            success=True,
-            # access_token=access_token
+        employee_id = rec_id[0]["res_id"]
+        employee_details = self.odoo_service.search_employee_by_id(employee_id)[0]
+        employee_details.pop("id")
+        employee_details["sub"] = employee_id
+        access_token = create_access_token(employee_details)
+        refresh_token = create_refresh_token({"sub": employee_id})
+        self.odoo_service.set_refresh_token(employee_id, refresh_token)
+        return TokenResponse(
+            access_token=access_token,
+            token_type="Bearer",
+            refresh_token=refresh_token,
         )

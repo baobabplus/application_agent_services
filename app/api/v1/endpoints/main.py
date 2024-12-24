@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
-from app.services.main import BaseAPI
+from app.services.main import get_available_country as fetch_available_country
 
 router = APIRouter()
 
@@ -22,8 +22,7 @@ This data can be used for rendering dropdowns or selection lists in the UI.
 )
 def get_available_country():
     try:
-        base_api = BaseAPI()
-        return base_api.get_available_country()
+        return fetch_available_country()
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

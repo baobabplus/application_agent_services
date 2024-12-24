@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
 
+from app.schemas.odoo_record import Many2One
+
 
 class EmployeeSchema(BaseModel):
     id: int = Field(description="The unique identifier of the employee.", example=4)
@@ -14,6 +16,8 @@ class EmployeeSchema(BaseModel):
         description="Indicates whether the employee can use the application agent.",
         example=True,
     )
+    generic_job_id: Many2One = Field(..., description="Generic job")
+    company_id: Many2One
 
     class Config:
         from_attributes = True
