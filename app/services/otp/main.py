@@ -1,9 +1,12 @@
 from datetime import datetime, timezone
 
 from app.core import settings as main_settings
+from app.core.odoo_config import settings as odoo_settings
 from app.core.otp_config import settings
+from app.schemas.auth import AuthResponse
 from app.schemas.otp import OTPResponse
 from app.schemas.token import TokenResponse
+from app.schemas.user import UserSchema
 from app.services.odoo.service import OdooService
 from app.utils.main import (
     create_access_token,
@@ -37,8 +40,8 @@ class OTP:
                 second_left = settings.otp_interval - time_diff.seconds
                 raise ValueError(
                     {
-                        "message": "Cannot generate new OTP",
-                        "details": f"Please wait for {second_left} seconds before generating a new OTP",
+                        "error": "Cannot generate new OTP",
+                        "error_description": f"Please wait for {second_left} seconds before generating a new OTP",
                     }
                 )
 
@@ -72,8 +75,8 @@ class OTP:
         else:
             raise ValueError(
                 {
-                    "message": "Employee not found",
-                    "details": f"Employee with phone number {self.phone_number} not found",
+                    "error": "Employee not found",
+                    "error_description": f"Employee with phone number {self.phone_number} not found",
                 }
             )
 
@@ -83,19 +86,25 @@ class OTP:
         if not is_valid:
             self.odoo_service.deactive_otp_by_phone(self.phone_number)
             raise ValueError(
-                {"message": "Invalid OTP", "details": "The OTP provided is expired"}
+                {
+                    "error": "otp_expired",
+                    "error_description": "The OTP provided is expired",
+                }
             )
         rec_id = self.odoo_service.search_otp_existance(self.phone_number, otp)
         if not rec_id:
             raise ValueError(
                 {
-                    "message": "Invalid OTP",
-                    "details": "The OTP provided is invalid",
+                    "error": "otp_invalid",
+                    "error_description": "The OTP provided is invalid",
                 }
             )
         elif rec_id and not rec_id[0]["active"]:
             raise ValueError(
-                {"message": "Invalid OTP", "details": "The OTP is already used"}
+                {
+                    "error": "otp_expired",
+                    "error_description": "The OTP is already used",
+                }
             )
         self.odoo_service.deactive_otp_by_phone(self.phone_number)
         employee_id = rec_id[0]["res_id"]
@@ -103,10 +112,22 @@ class OTP:
         employee_details.pop("id")
         employee_details["sub"] = employee_id
         access_token = create_access_token(employee_details)
+        expire_in = odoo_settings.access_token_expire * 60
+        picture_url = f"{odoo_settings.odoo_url}/web/image/hr.employee.public/{employee_id}/image_512/image.jpeg"
         refresh_token = create_refresh_token({"sub": employee_id})
         self.odoo_service.set_refresh_token(employee_id, refresh_token)
-        return TokenResponse(
-            access_token=access_token,
-            token_type="Bearer",
-            refresh_token=refresh_token,
+        return AuthResponse(
+            user=UserSchema(
+                sub=employee_id,
+                name=employee_details["name"],
+                phonenumber=employee_details["mobile_phone"],
+                loyality_points=10,
+                picture=picture_url,
+            ),
+            token=TokenResponse(
+                expires_in=expire_in,
+                access_token=access_token,
+                token_type="Bearer",
+                refresh_token=refresh_token,
+            ),
         )

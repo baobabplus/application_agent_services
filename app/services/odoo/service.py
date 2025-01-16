@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from functools import wraps
 from typing import List, Optional
@@ -63,7 +64,7 @@ class OdooService:
         employee_id = self.model_hr_employee.search(
             domain=[["id", "=", employee_id]], fields=fields, limit=1
         )
-
+        logging.info(f"Employee: {employee_id}")
         return employee_id
 
     def search_employee_by_phone(self, phone_number: int):
@@ -75,15 +76,15 @@ class OdooService:
         if not employee_id:
             raise ValueError(
                 {
-                    "message": "Employee not found",
-                    "details": f"Employee with phone number {phone_number} not found",
+                    "error": "Employee not found",
+                    "error_description": f"Employee with phone number {phone_number} not found",
                 }
             )
         elif not employee_id and employee_id[0]["can_use_application_agent"]:
             raise UnauthorizedEmployeeException(
                 {
-                    "message": "Unauthorized employee",
-                    "details": "Employee is not authorized to use the application agent",
+                    "error": "Unauthorized employee",
+                    "error_description": "Employee is not authorized to use the application agent",
                 }
             )
         return employee_id
@@ -114,8 +115,8 @@ class OdooService:
         if not employee_id:
             raise ValueError(
                 {
-                    "message": "Invalid Refresh Token",
-                    "details": "The refresh token provided is invalid",
+                    "error": "Invalid Refresh Token",
+                    "error_description": "The refresh token provided is invalid",
                 }
             )
 
@@ -357,6 +358,7 @@ class OdooService:
 
     def refresh_token(self, data: dict) -> TokenResponse:
         payload = data["payload"]
+        logging.info(f"refresh_token Payload: {payload}")
         token = data["token"]
         employee_id = int(payload["sub"])
         self.check_refresh_token(employee_id, token)
@@ -364,11 +366,13 @@ class OdooService:
         employee_details.pop("id")
         employee_details["sub"] = employee_id
         access_token = create_access_token(employee_details)
+        expire_in = settings.access_token_expire * 60
         refresh_token = create_refresh_token({"sub": employee_id})
         self.set_refresh_token(employee_id, refresh_token)
         return TokenResponse(
             access_token=access_token,
             token_type="Bearer",
+            expires_in=expire_in,
             refresh_token=refresh_token,
         )
 

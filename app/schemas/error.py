@@ -1,6 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ErrorResponse(BaseModel):
-    message: str
-    details: dict
+    error: str = Field(..., description="The error code.")
+    error_description: str = Field(..., description="A brief description of the error.")

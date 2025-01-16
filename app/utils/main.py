@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import phonenumbers
 import pyotp
 from fastapi import Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 from fastapi.security import (
     HTTPAuthorizationCredentials,
     HTTPBearer,
@@ -65,6 +66,7 @@ def create_access_token(data: dict):
         minutes=odoo_settings.access_token_expire
     )
     to_encode.update({"exp": expire})
+    logging.info(f"create_access_token : data {to_encode}")
     return jwt.encode(to_encode, odoo_settings.access_token_secret, algorithm=ALGORITHM)
 
 
@@ -76,6 +78,7 @@ def create_refresh_token(data: dict):
         days=odoo_settings.refresh_token_expire
     )
     to_encode.update({"exp": expire})
+    logging.info(f"create_refresh_token : data {to_encode}")
     return jwt.encode(
         to_encode, odoo_settings.refresh_token_secret, algorithm=ALGORITHM
     )
@@ -223,9 +226,9 @@ def handle_exceptions(func):
         try:
             return func(*args, **kwargs)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            return JSONResponse(content=e.args[0], status_code=400)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            return JSONResponse(content=e.args[0], status_code=500)
 
     return wrapper
 

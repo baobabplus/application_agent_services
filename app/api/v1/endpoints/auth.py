@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 
 from app.schemas.error import ErrorResponse
@@ -6,9 +7,10 @@ from app.schemas.otp import OTPResponse
 from app.schemas.token import LogoutResponse, TokenResponse
 from app.services.odoo.service import OdooService
 from app.services.otp.main import OTP
-from app.utils.main import handle_exceptions, verify_refresh_token
+from app.utils.main import verify_refresh_token
 
 router = APIRouter()
+refresh_routeur = APIRouter()
 security = HTTPBearer()
 
 
@@ -36,8 +38,13 @@ def send_otp(
         description="The phone number, including the country code (e.g., 234XXXXXXXXXX)",
     ),
 ):
-    my_otp = OTP(phone_number)
-    return my_otp.send_otp()
+    try:
+        my_otp = OTP(phone_number)
+        return my_otp.send_otp()
+    except ValueError as e:
+        return JSONResponse(content=e.args[0], status_code=400)
+    except Exception as e:
+        return JSONResponse(content=e.args[0], status_code=500)
 
 
 @router.post(
@@ -61,11 +68,16 @@ def verify_otp(
     ),
     otp: str = Query(..., description="OTP to verify", max_length=6, min_length=6),
 ):
-    my_otp = OTP(phone_number)
-    return my_otp.verify_otp(otp)
+    try:
+        my_otp = OTP(phone_number)
+        return my_otp.verify_otp(otp)
+    except ValueError as e:
+        return JSONResponse(content=e.args[0], status_code=400)
+    except Exception as e:
+        return JSONResponse(content=e.args[0], status_code=500)
 
 
-@router.post(
+@refresh_routeur.post(
     "/refresh",
     summary="Refresh Token",
     description="""Refreshes the access token using a valid refresh token.
@@ -83,8 +95,13 @@ def verify_otp(
     },
 )
 def refresh_access_token(payload: dict = Depends(verify_refresh_token)):
-    odoo_service = OdooService()
-    return odoo_service.refresh_token(payload)
+    try:
+        odoo_service = OdooService()
+        return odoo_service.refresh_token(payload)
+    except ValueError as e:
+        return JSONResponse(content=e.args[0], status_code=400)
+    except Exception as e:
+        return JSONResponse(content=e.args[0], status_code=500)
 
 
 @router.post(
@@ -99,12 +116,11 @@ def refresh_access_token(payload: dict = Depends(verify_refresh_token)):
     },
 )
 def logout(payload: dict = Depends(verify_refresh_token)):
-    odoo_service = OdooService()
-    odoo_service.logout(payload)
-    return LogoutResponse(message="User logged out successfully.")
-
-
-send_otp = handle_exceptions(send_otp)
-verify_otp = handle_exceptions(verify_otp)
-refresh_access_token = handle_exceptions(refresh_access_token)
-logout = handle_exceptions(logout)
+    try:
+        odoo_service = OdooService()
+        odoo_service.logout(payload)
+        return LogoutResponse(message="User logged out successfully.")
+    except ValueError as e:
+        return JSONResponse(content=e.args[0], status_code=400)
+    except Exception as e:
+        return JSONResponse(content=e.args[0], status_code=500)
