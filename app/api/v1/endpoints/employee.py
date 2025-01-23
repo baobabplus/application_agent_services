@@ -1,20 +1,37 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import JSONResponse
 
-from app.schemas.error import ErrorResponse
-from app.schemas.incentive_event import IncentiveEventResponse
-from app.schemas.incentive_report import IncentiveReportSimple, ReportPeriod
-from app.schemas.payg_account import PaygAccountResponse
+from app.schemas.error import ErrorSchema
+from app.schemas.incentive_event import IncentiveEventSummarySchema
+from app.schemas.incentive_report import IncentiveReportSimpleSchema, ReportPeriodSchema
+from app.schemas.payg_account import PaygAccountRecordsetSchema
+from app.services.odoo.exceptions import EmployeeNotFoundException
 from app.services.odoo.service import OdooService
-from app.utils.main import (
-    get_column_order,
-    handle_exceptions_employee,
-    validate_order,
-    verify_access_token,
-)
+from app.utils.main import get_column_order, validate_order, verify_access_token
 
 router = APIRouter()
+
+
+@router.get(
+    "/profile",
+    summary="Get Employee Account Details",
+    description="""Fetches the account details for the authenticated employee.
+    The response includes information like the employee's name, loyality points, phone number, etc.""",
+)
+async def get_employee_profile(
+    user_context: dict = Depends(verify_access_token),
+):
+    try:
+        service = OdooService(user_context)
+        return service.get_employee_profile()
+    except ValueError as e:
+        return JSONResponse(content=e.args[0], status_code=400)
+    except EmployeeNotFoundException as e:
+        return JSONResponse(content=e.args[0], status_code=404)
+    except Exception as e:
+        return JSONResponse(content=e.args[0], status_code=500)
 
 
 @router.get(
@@ -24,22 +41,27 @@ router = APIRouter()
     The endpoint returns details like event date, value, and associated client information.""",
     responses={
         200: {
-            "model": IncentiveEventResponse,
+            "model": IncentiveEventSummarySchema,
             "description": "List of incentive events for the employee.",
         },
         400: {
-            "model": ErrorResponse,
+            "model": ErrorSchema,
             "description": "Invalid request or missing parameters.",
         },
-        500: {"model": ErrorResponse, "description": "Internal server error."},
+        500: {"model": ErrorSchema, "description": "Internal server error."},
     },
 )
 async def get_bonus_by_employee_id(
-    period: ReportPeriod,
+    period: ReportPeriodSchema,
     user_context: dict = Depends(verify_access_token),
-) -> IncentiveEventResponse:
-    service = OdooService(user_context)
-    return service.search_bonuses_by_employee(period)
+) -> IncentiveEventSummarySchema:
+    try:
+        service = OdooService(user_context)
+        return service.search_bonuses_by_employee(period)
+    except ValueError as e:
+        return JSONResponse(content=e.args[0], status_code=400)
+    except Exception as e:
+        return JSONResponse(content=e.args[0], status_code=500)
 
 
 @router.get(
@@ -49,22 +71,27 @@ async def get_bonus_by_employee_id(
     Each report provides basic information like the report ID and relevant dates.""",
     responses={
         200: {
-            "model": List[IncentiveReportSimple],
+            "model": List[IncentiveReportSimpleSchema],
             "description": "List of validated reports for the employee.",
         },
         400: {
-            "model": ErrorResponse,
+            "model": ErrorSchema,
             "description": "Invalid request or missing parameters.",
         },
-        500: {"model": ErrorResponse, "description": "Internal server error."},
+        500: {"model": ErrorSchema, "description": "Internal server error."},
     },
 )
 async def get_custom_bonus_by_employee_id(
     user_context: dict = Depends(verify_access_token),
-) -> List[IncentiveReportSimple]:
-    service = OdooService(user_context)
-    report_ids = service.search_validate_report_by_employee()
-    return report_ids
+) -> List[IncentiveReportSimpleSchema]:
+    try:
+        service = OdooService(user_context)
+        report_ids = service.search_validate_report_by_employee()
+        return report_ids
+    except ValueError as e:
+        return JSONResponse(content=e.args[0], status_code=400)
+    except Exception as e:
+        return JSONResponse(content=e.args[0], status_code=500)
 
 
 @router.get(
@@ -74,27 +101,32 @@ async def get_custom_bonus_by_employee_id(
     Returns incentive events linked to that report, including event date, value, and client details.""",
     responses={
         200: {
-            "model": IncentiveEventResponse,
+            "model": IncentiveEventSummarySchema,
             "description": "List of incentive events for the given report ID.",
         },
         400: {
-            "model": ErrorResponse,
+            "model": ErrorSchema,
             "description": "Invalid report ID or request format.",
         },
-        500: {"model": ErrorResponse, "description": "Internal server error."},
+        500: {"model": ErrorSchema, "description": "Internal server error."},
     },
 )
 async def get_bonus_report_by_id(
     report_id: int,
     user_context: dict = Depends(verify_access_token),
-) -> IncentiveEventResponse:
-    service = OdooService(user_context)
-    return service.search_bonuses(report_id=report_id)
+) -> IncentiveEventSummarySchema:
+    try:
+        service = OdooService(user_context)
+        return service.search_bonuses(report_id=report_id)
+    except ValueError as e:
+        return JSONResponse(content=e.args[0], status_code=400)
+    except Exception as e:
+        return JSONResponse(content=e.args[0], status_code=500)
 
 
 @router.get(
     "/slower-payer",
-    response_model=PaygAccountResponse,
+    response_model=PaygAccountRecordsetSchema,
     summary="Retrieve slow-paying clients by employee",
     description=(
         "Fetch a paginated list of clients identified as slow payers, "
@@ -140,17 +172,13 @@ async def get_slower_payer_client(
     ),
     user_context: dict = Depends(verify_access_token),
 ):
-    service = OdooService()
-    order = validate_order(order, get_column_order())
-    return service.get_slower_payer_client_service(
-        user_context["user_id"], offset, limit, order
-    )
-
-
-get_bonus_by_employee_id = handle_exceptions_employee(get_bonus_by_employee_id)
-
-get_custom_bonus_by_employee_id = handle_exceptions_employee(
-    get_custom_bonus_by_employee_id
-)
-get_slower_payer_client = handle_exceptions_employee(get_slower_payer_client)
-get_bonus_report_by_id = handle_exceptions_employee(get_bonus_report_by_id)
+    try:
+        service = OdooService()
+        order = validate_order(order, get_column_order())
+        return service.get_slower_payer_client_service(
+            user_context["user_id"], offset, limit, order
+        )
+    except ValueError as e:
+        return JSONResponse(content=e.args[0], status_code=400)
+    except Exception as e:
+        return JSONResponse(content=e.args[0], status_code=500)

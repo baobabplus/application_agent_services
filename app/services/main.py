@@ -2,10 +2,10 @@ from collections import defaultdict
 from typing import List
 
 from app.schemas.incentive_event import (
-    IncentiveEventMinimalRecord,
-    IncentiveEventResponse,
+    IncentiveEventMinimalSchema,
+    IncentiveEventSummarySchema,
 )
-from app.schemas.screen import DateRange, HomepageResponse, Summary, Tasks
+from app.schemas.screen import DateRangeSchema, SummarySchema, TasksSchema
 from app.services.odoo.service import OdooService
 
 # Constants for country data
@@ -48,13 +48,13 @@ def _group_incentive_events_by_category(records):
         records (list): A list of incentive event records.
 
     Returns:
-        list: A list of IncentiveEventMinimalRecord objects grouped by category.
+        list: A list of IncentiveEventMinimalSchema objects grouped by category.
     """
     grouped_data = defaultdict(float)
     for record in records:
         grouped_data[record.event_type_id.category] += record.value
     return [
-        IncentiveEventMinimalRecord(category=category, sum_value=value)
+        IncentiveEventMinimalSchema(category=category, sum_value=value)
         for category, value in grouped_data.items()
     ]
 
@@ -77,15 +77,15 @@ def _get_summary_details(odoo_service: OdooService, current_report_id: int):
     if current_report_id:
         bonues_ids = odoo_service.search_bonuses(report_id=current_report_id["id"])
     else:
-        bonues_ids = IncentiveEventResponse(
+        bonues_ids = IncentiveEventSummarySchema(
             count=0, models="incentive.event", records=[]
         )
     # Process incentive events
     summary_details = _group_incentive_events_by_category(bonues_ids.records)
     currency_id = _get_currency_from_records(bonues_ids.records)
     total_value = sum([record.value for record in bonues_ids.records])
-    return Summary(
-        date_range=DateRange(
+    return SummarySchema(
+        date_range=DateRangeSchema(
             start=current_report_id["start_date"], end=current_report_id["end_date"]
         ),
         total_earnings=total_value,
@@ -96,39 +96,27 @@ def _get_summary_details(odoo_service: OdooService, current_report_id: int):
     )
 
 
-def get_homepage_action(user_context: dict) -> str:
-    return {
-        "current_bonuses": "/api/v1/employee/bonuses?period=current",
-        "previous_bonuses": "/api/v1/employee/bonuses?period=previous",
-        "custom_bonuses": "/api/v1/employee/report",
-        "tasks_list": "api/v1/homepage/tasks",
-    }
-
-
-def get_screen_homepage(user_context: dict) -> HomepageResponse:
-    """
-    Generate the dashboard response for the home page based on the employee ID and week offset.
-
-    Args:
-        employee_id (int): The employee's unique ID.
-        week_offset (int): Week offset for the range of incentive events (default is 0).
-
-    Returns:
-        HomepageResponse: The structured response for the dashboard.
-    """
-
+def fetch_homepage(user_context: dict) -> SummarySchema:
     odoo_service = OdooService(user_context)
-    # Fetch incentive reports
+    status = "in_progress"
     latest_report_ids = odoo_service.search_latest_report_by_employee()
-    current_report_id = latest_report_ids.get("in_progress", False)
+    current_report_id = latest_report_ids.get(status, False)
+    bonuses = odoo_service.search_bonuses(report_id=current_report_id["id"])
+    tasks = odoo_service.get_employee_tasks()
+    return SummarySchema(
+        total_earnings=bonuses.total_value,
+        categories=bonuses.event_categories,
+        date_range=DateRangeSchema(
+            start=current_report_id["start_date"],
+            end=current_report_id["end_date"],
+        ),
+        currency="Ar",
+        action="/test/",
+        tasks=tasks,
+    )
 
-    # Create the summary
-    summary = _get_summary_details(odoo_service, current_report_id)
 
-    return HomepageResponse(summary=summary)
-
-
-def get_homepage_tasks(user_context: dict) -> List[Tasks]:
+def get_homepage_tasks(user_context: dict) -> List[TasksSchema]:
     """
     Build a list of dashboard components based on data retrieved from Odoo.
 
@@ -137,17 +125,7 @@ def get_homepage_tasks(user_context: dict) -> List[Tasks]:
         employee_id (int): The employee's unique ID.
 
     Returns:
-        list: A list of Tasks objects for the dashboard.
+        list: A list of TasksSchema objects for the dashboard.
     """
     odoo_service = OdooService(user_context)
-    account_ids = odoo_service.search_account_by_segmentation_and_responsible(
-        offset=0, limit=-1, order="id desc"
-    )
-    return [
-        Tasks(
-            icon="slow-payer-icon",
-            label="Slow payers",
-            count=len(account_ids),
-            action="/api/v1/employee/slow-payers",
-        ),
-    ]
+    return odoo_service.get_employee_tasks()

@@ -6,18 +6,18 @@ from pydantic import BaseModel, Field, field_validator
 from app.schemas.odoo_record import Many2One
 
 
-class ReportStatus(str, Enum):
+class ReportStatusSchema(str, Enum):
     IN_PROGRESS = "in_progress"
     TO_VALIDATE = "to_validate"
     DONE = "done"
 
 
-class ReportPeriod(str, Enum):
+class ReportPeriodSchema(str, Enum):
     CURRENT = "current"
     PREVIOUS = "previous"
 
 
-class IncentiveReportSimple(BaseModel):
+class IncentiveReportSimpleSchema(BaseModel):
     id: int = Field(
         ..., description="The unique identifier for the Incentive Report.", example=1
     )
@@ -34,7 +34,7 @@ class IncentiveReportSimple(BaseModel):
     )
 
 
-class IncentiveReport(BaseModel):
+class IncentiveReportSchema(BaseModel):
     id: int = Field(
         ..., description="The unique identifier for the Incentive Report.", example=1
     )
@@ -50,7 +50,7 @@ class IncentiveReport(BaseModel):
     generic_job_id: Many2One = Field(
         ..., description="The job associated with this incentive report."
     )
-    status: ReportStatus = Field(
+    status: ReportStatusSchema = Field(
         ..., description="Status of the incentive report.", example="done"
     )
 

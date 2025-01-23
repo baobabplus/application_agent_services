@@ -2,15 +2,17 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 
-from app.schemas.error import ErrorResponse
-from app.schemas.otp import OTPResponse
-from app.schemas.token import LogoutResponse, TokenResponse
+from app.schemas.auth import AuthSchema
+from app.schemas.error import ErrorSchema
+from app.schemas.otp import OTPResponseSchema
+from app.schemas.token import LogoutSchema, TokenSchema
 from app.services.odoo.service import OdooService
 from app.services.otp.main import OTP
 from app.utils.main import verify_refresh_token
 
 router = APIRouter()
 refresh_routeur = APIRouter()
+user_router = APIRouter()
 security = HTTPBearer()
 
 
@@ -22,14 +24,14 @@ security = HTTPBearer()
     The OTP is typically used for authentication or verification purposes.""",
     responses={
         200: {
-            "model": OTPResponse,
+            "model": OTPResponseSchema,
             "description": "OTP sent successfully. The response contains information about the OTP request.",
         },
         400: {
-            "model": ErrorResponse,
-            "description": "Invalid phone number or request format.",
+            "model": ErrorSchema,
+            "description": "otp_spam",
         },
-        500: {"model": ErrorResponse, "description": "Internal server error."},
+        500: {"model": ErrorSchema, "description": "Internal server error."},
     },
 )
 def send_otp(
@@ -54,11 +56,14 @@ def send_otp(
     If the OTP is correct, an access token is returned.""",
     responses={
         200: {
-            "model": TokenResponse,
+            "model": AuthSchema,
             "description": "OTP verified successfully. A token is returned.",
         },
-        400: {"model": ErrorResponse, "description": "Invalid OTP or phone number."},
-        500: {"model": ErrorResponse, "description": "Internal server error."},
+        400: {
+            "model": ErrorSchema,
+            "description": "otp_expired, otp_invalid",
+        },
+        500: {"model": ErrorSchema, "description": "Internal server error."},
     },
 )
 def verify_otp(
@@ -84,14 +89,14 @@ def verify_otp(
     This helps maintain the user's session without re-authentication.""",
     responses={
         200: {
-            "model": TokenResponse,
+            "model": TokenSchema,
             "description": "Token refreshed successfully. A new access token is returned.",
         },
         400: {
-            "model": ErrorResponse,
+            "model": ErrorSchema,
             "description": "Invalid or expired refresh token.",
         },
-        500: {"model": ErrorResponse, "description": "Internal server error."},
+        500: {"model": ErrorSchema, "description": "Internal server error."},
     },
 )
 def refresh_access_token(payload: dict = Depends(verify_refresh_token)):
@@ -104,22 +109,21 @@ def refresh_access_token(payload: dict = Depends(verify_refresh_token)):
         return JSONResponse(content=e.args[0], status_code=500)
 
 
-@router.post(
+@user_router.post(
     "/logout",
     summary="Logout User",
     description="""Logs out the user by invalidating the refresh token.
     This endpoint effectively ends the user's session.""",
     responses={
-        200: {"model": LogoutResponse, "description": "User logged out successfully."},
-        400: {"model": ErrorResponse, "description": "Invalid or missing token."},
-        500: {"model": ErrorResponse, "description": "Internal server error."},
+        200: {"model": LogoutSchema, "description": "User logged out successfully."},
+        500: {"model": ErrorSchema, "description": "Internal server error."},
     },
 )
 def logout(payload: dict = Depends(verify_refresh_token)):
     try:
         odoo_service = OdooService()
         odoo_service.logout(payload)
-        return LogoutResponse(message="User logged out successfully.")
+        return LogoutSchema(message="User logged out successfully.")
     except ValueError as e:
         return JSONResponse(content=e.args[0], status_code=400)
     except Exception as e:

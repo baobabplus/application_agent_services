@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from app.schemas.odoo_record import Many2One
 
 
-class PaygAccountRecord(BaseModel):
+class PaygAccountSchema(BaseModel):
     id: int = Field(
         ..., description="The unique identifier for the Account.", example=1
     )
@@ -23,13 +23,13 @@ class PaygAccountRecord(BaseModel):
     )
 
 
-class PaygAccountResponse(BaseModel):
+class PaygAccountRecordsetSchema(BaseModel):
     count: int = Field(
         ..., description="The total number of records returned.", example=10
     )
     models: str = Field(
         ..., description="The name of the model being queried.", example="payg.account"
     )
-    records: List[PaygAccountRecord] = Field(
+    records: List[PaygAccountSchema] = Field(
         ..., description="A list of account records."
     )

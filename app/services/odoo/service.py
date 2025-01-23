@@ -4,15 +4,20 @@ from functools import wraps
 from typing import List, Optional
 
 from app.core.odoo_config import settings
-from app.schemas.employee import EmployeeSchema
+from app.schemas.employee import EmployeeProfileSchema, EmployeeSchema
 from app.schemas.incentive_event import (
-    EventType,
-    IncentiveEventRecord,
-    IncentiveEventResponse,
+    EventCategorySchema,
+    EventTypeSchema,
+    IncentiveEventSchema,
+    IncentiveEventSummarySchema,
 )
-from app.schemas.incentive_report import IncentiveReport, IncentiveReportSimple
-from app.schemas.payg_account import PaygAccountRecord, PaygAccountResponse
-from app.schemas.token import TokenResponse
+from app.schemas.incentive_report import (
+    IncentiveReportSchema,
+    IncentiveReportSimpleSchema,
+)
+from app.schemas.payg_account import PaygAccountRecordsetSchema, PaygAccountSchema
+from app.schemas.screen import TasksSchema
+from app.schemas.token import TokenSchema
 from app.services.odoo.exceptions import UnauthorizedEmployeeException
 from app.utils.main import (
     create_access_token,
@@ -23,6 +28,14 @@ from app.utils.main import (
 
 from .client import OdooAPI
 from .models import Models
+
+STATIC_COLOR_MAPPING = {
+    "sales": "#F2BA11",
+    "payment": "#AA54CC",
+    "repossession": "#F26522",
+    "penalty": "#39B54A",
+    "hypercare": "#72cc1f",
+}
 
 
 class OdooService:
@@ -45,6 +58,7 @@ class OdooService:
         self.model_incentive_report = Models(
             client=self.odoo_client, model_name="incentive.report"
         )
+        self.move_event_type = Models(client=self.odoo_client, model_name="event.type")
 
     # hr_employee methods
     def check_can_use_application_agent(method):
@@ -65,7 +79,7 @@ class OdooService:
             domain=[["id", "=", employee_id]], fields=fields, limit=1
         )
         logging.info(f"Employee: {employee_id}")
-        return employee_id
+        return employee_id[0]
 
     def search_employee_by_phone(self, phone_number: int):
         phone_number = validate_and_extract_country(phone_number)["formatted_number"]
@@ -96,7 +110,7 @@ class OdooService:
         account_ids = self.search_account_by_segmentation_and_responsible(
             employee_id, offset, limit, order
         )
-        return PaygAccountResponse(
+        return PaygAccountRecordsetSchema(
             count=len(account_ids), models="payg.account", records=account_ids
         )
 
@@ -119,6 +133,47 @@ class OdooService:
                     "error_description": "The refresh token provided is invalid",
                 }
             )
+
+    def get_employee_profile(self):
+        employee_id = self.search_employee_by_id(int(self.user_context["sub"]))
+        return EmployeeProfileSchema(
+            name=employee_id["name"],
+            mobile_phone=employee_id["mobile_phone"],
+            job_title=employee_id["generic_job_id"][1],
+            loyality_points=10,
+        )
+
+    def get_employee_tasks(self) -> List[TasksSchema]:
+        return [
+            TasksSchema(
+                icon="units-repossess-icon",
+                label="Units to Repossess",
+                count=12,
+                action="/api/v1/employee/unit-repossess",
+                color="#F2BA11",
+            ),
+            TasksSchema(
+                icon="to-do-icon",
+                label="Actions to do",
+                count=18,
+                action="/api/v1/employee/todo",
+                color="#AA54CC",
+            ),
+            TasksSchema(
+                icon="slow-payer-icon",
+                label="Slow Payer",
+                count=30,
+                action="/api/v1/employee/slower-payer",
+                color="#F26522",
+            ),
+            TasksSchema(
+                icon="hypercare-icon",
+                label="Hypercare at Risk",
+                count=0,
+                action="/api/v1/employee/hypercare",
+                color="#72cc1f",
+            ),
+        ]
 
     # sms_otp methods
 
@@ -168,7 +223,7 @@ class OdooService:
             ["account_segmentation_id", "in", segmentation_ids],
             ["responsible_agent_employee_id", "=", employee_id],
         ]
-        fields = list(PaygAccountRecord.model_fields.keys())
+        fields = list(PaygAccountSchema.model_fields.keys())
         account_id = self.model_payg_account.search(
             domain=domain, fields=fields, limit=limit, offset=offset, order=order
         )
@@ -186,13 +241,13 @@ class OdooService:
 
     def search_validate_report_by_employee(
         self,
-    ) -> List[IncentiveReportSimple]:
+    ) -> List[IncentiveReportSimpleSchema]:
         reports_ids = []
         incentive_report_ids = self.search_incentive_report_by_employee()
         for report in incentive_report_ids:
             if report["status"] == "done":
                 reports_ids.append(
-                    IncentiveReportSimple(
+                    IncentiveReportSimpleSchema(
                         id=report["id"],
                         start_date=report["start_date"],
                         end_date=report["end_date"],
@@ -203,8 +258,8 @@ class OdooService:
 
     def search_incentive_report_by_employee(
         self,
-    ) -> List[IncentiveReport]:
-        fields = list(IncentiveReport.model_fields.keys())
+    ) -> List[IncentiveReportSchema]:
+        fields = list(IncentiveReportSchema.model_fields.keys())
         generic_job_id = self.user_context["generic_job_id"][0]
         company_id = self.user_context["company_id"][0]
         incentive_report_ids = self.model_incentive_report.search(
@@ -220,9 +275,14 @@ class OdooService:
         current_report_id = latest_report_ids.get(status, False)
         if current_report_id:
             return self.search_bonuses(report_id=current_report_id["id"])
-        return IncentiveEventResponse(
+        return IncentiveEventSummarySchema(
             count=0, models="incentive.event", total_value=0, records=[]
         )
+
+    def search_event_type(self):
+        fields = list(EventTypeSchema.model_fields.keys())
+        event_type_ids = self.move_event_type.search(domain=[], fields=fields)
+        return event_type_ids
 
     @check_can_use_application_agent
     def search_bonuses(
@@ -233,36 +293,20 @@ class OdooService:
         event_date_start: Optional[date] = None,
         event_date_end: Optional[date] = None,
         report_id: Optional[int] = None,
-    ) -> IncentiveEventResponse:
+    ) -> IncentiveEventSummarySchema:
         employee_valid_report = list(
             map(lambda item: item["id"], self.search_incentive_report_by_employee())
         )
         if report_id and report_id not in employee_valid_report:
-            return IncentiveEventResponse(
+            return IncentiveEventSummarySchema(
                 count=0, models="incentive.event", total_value=0, records=[]
             )
         # Constants
-        MAPPING_EVENT_TYPE = {
-            "50-PERCENT-PAID": "Payment",
-            "75-PERCENT-PAID": "Payment",
-            "ACTIVATION": "Sales",
-            "BUDG OPE": "BUDG OP",
-            "HC-END-SEG-A": "HC END",
-            "HC-END-SEG-B": "HC END",
-            "HC-END-SEG-C": "HC END",
-            "HC-END-SEG-D": "HC END",
-            "PAIEMENT EXCL DP": "Payment",
-            "PAIEMENT MANUEL": "Payment",
-            "REPO-EARLY": "Repossession",
-            "REPO-LATE": "Repossession",
-            "RESELL-AFTER-REPO": "Sales",
-            "RPP": "RPP",
-            "WRITE OFF": "WRITE OFF",
-            "UPSELL": "Sales",
-            "DIRECT-SALE": "Sales",
-            "MANUAL_EVENT": "Regularisation",
-        }
-        event_typ = list(MAPPING_EVENT_TYPE)
+        mapping_event_type = {}
+        event_type_ids = self.search_event_type()
+        for event_type in event_type_ids:
+            mapping_event_type[event_type["name"]] = event_type["type"]
+        event_typ = list(mapping_event_type)
         employee_id = int(self.user_context["sub"])
 
         # Build domain filters
@@ -271,21 +315,18 @@ class OdooService:
         )
 
         # Fetch fields and records
-        fields = list(IncentiveEventRecord.model_fields.keys())
+        fields = list(IncentiveEventSchema.model_fields.keys())
         record_ids = self.model_incentive_event.search(
             domain=domain, fields=fields, limit=limit, offset=offset, order=order
         )
 
         # Enrich records
         enriched_records, total_value = self._enrich_records(
-            record_ids, MAPPING_EVENT_TYPE
+            record_ids, mapping_event_type
         )
 
-        return IncentiveEventResponse(
-            count=len(enriched_records),
-            total_value=total_value,
-            models="incentive.event",
-            records=enriched_records,
+        return IncentiveEventSummarySchema(
+            event_categories=enriched_records, total_value=total_value
         )
 
     def _build_bonus_domain(
@@ -320,35 +361,37 @@ class OdooService:
 
     def _enrich_records(
         self, record_ids: List[dict], mapping_event_type: dict
-    ) -> List[dict]:
+    ) -> tuple:
         """Enrich records with event type and account details."""
         enriched_records = []
         total_value = 0
-        incentive_event_record = []
+        event_type_value = dict()
         for record in record_ids:
             # Enrich event type
             if record.get("event_type_id"):
-                record["event_type_id"] = EventType(
-                    id=record["event_type_id"][0],
-                    name=record["event_type_id"][1],
-                    category=mapping_event_type.get(
-                        record["event_type_id"][1], "Other"
-                    ),
-                )
-
-            # Enrich account details
-            if record.get("account_id"):
-                account_id = self._find_account_id(record)
-                record["account_id"] = PaygAccountRecord(**account_id[0])
-
-            enriched_records.append(record)
+                event_name = record["event_type_id"][1]
+                event_type = mapping_event_type[event_name]
+                if event_type not in event_type_value:
+                    event_type_value[event_type] = {
+                        "value": 0,
+                        "color": STATIC_COLOR_MAPPING.get(event_type, "#000000"),
+                    }
+                event_type_value[event_type]["value"] += record["value"]
             total_value += record["value"]
-            incentive_event_record.append(IncentiveEventRecord(**record))
-        return enriched_records, total_value
+        for item in event_type_value:
+            enriched_records.append(
+                EventCategorySchema(
+                    name=item,
+                    color=event_type_value[item]["color"],
+                    value=event_type_value[item]["value"],
+                )
+            )
+        sorted_records = sorted(enriched_records, key=lambda x: x.value, reverse=True)
+        return (sorted_records, total_value)
 
     def _find_account_id(self, record: dict) -> List[dict]:
         """Find account details for a given record."""
-        fields = list(PaygAccountRecord.model_fields.keys())
+        fields = list(PaygAccountSchema.model_fields.keys())
         account_id = self.model_payg_account.search(
             domain=[["id", "=", record["account_id"][0]]],
             fields=fields,
@@ -356,20 +399,20 @@ class OdooService:
         )
         return account_id
 
-    def refresh_token(self, data: dict) -> TokenResponse:
+    def refresh_token(self, data: dict) -> TokenSchema:
         payload = data["payload"]
         logging.info(f"refresh_token Payload: {payload}")
         token = data["token"]
         employee_id = int(payload["sub"])
         self.check_refresh_token(employee_id, token)
-        employee_details = self.search_employee_by_id(employee_id)[0]
+        employee_details = self.search_employee_by_id(employee_id)
         employee_details.pop("id")
         employee_details["sub"] = employee_id
         access_token = create_access_token(employee_details)
         expire_in = settings.access_token_expire * 60
         refresh_token = create_refresh_token({"sub": employee_id})
         self.set_refresh_token(employee_id, refresh_token)
-        return TokenResponse(
+        return TokenSchema(
             access_token=access_token,
             token_type="Bearer",
             expires_in=expire_in,
