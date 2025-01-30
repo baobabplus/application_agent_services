@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, timezone
 import phonenumbers
 import pyotp
 from fastapi import Depends, HTTPException, status
-from fastapi.responses import JSONResponse
 from fastapi.security import (
     HTTPAuthorizationCredentials,
     HTTPBearer,
@@ -18,10 +17,6 @@ from phonenumbers import NumberParseException, geocoder
 
 from app.core.odoo_config import settings as odoo_settings
 from app.core.otp_config import settings as otp_settings
-from app.services.odoo.exceptions import (
-    EmployeeNotFoundException,
-    UnauthorizedEmployeeException,
-)
 
 ALGORITHM = "HS256"
 
@@ -219,31 +214,3 @@ def filter_latest_event_by_status(data):
         item["end_date"] = item["end_date"]
 
     return latest_by_status
-
-
-def handle_exceptions(func):
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except ValueError as e:
-            return JSONResponse(content=e.args[0], status_code=400)
-        except Exception as e:
-            return JSONResponse(content=e.args[0], status_code=500)
-
-    return wrapper
-
-
-def handle_exceptions_employee(func):
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-        except UnauthorizedEmployeeException as e:
-            raise HTTPException(status_code=403, detail=e.details)
-        except EmployeeNotFoundException as e:
-            raise HTTPException(status_code=404, detail=e.details)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-    return wrapper

@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.utils.main import validate_and_extract_country
 
 
-class OTPRequest(BaseModel):
+class OTPRequestSchema(BaseModel):
     phone_number: str = Field(..., title="Phone Number")
 
     @field_validator("phone_number")
@@ -14,7 +14,7 @@ class OTPRequest(BaseModel):
         return phone_data
 
 
-class OTPResponse(BaseModel):
+class OTPResponseSchema(BaseModel):
     otp: Optional[str] = Field(
         None, description="The Time based One Time Password (TOTP) sent to the user."
     )

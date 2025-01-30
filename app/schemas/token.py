@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-class TokenResponse(BaseModel):
+class TokenSchema(BaseModel):
     token_type: Literal["Bearer"] = Field(
         "Bearer", description="The type of token.", example="Bearer"
     )
@@ -18,7 +18,7 @@ class TokenResponse(BaseModel):
     )
 
 
-class LogoutResponse(BaseModel):
+class LogoutSchema(BaseModel):
     message: str = Field(
         ...,
         description="The message indicating the user has been logged out.",

@@ -1,28 +1,42 @@
 from datetime import date
-from typing import List, Union
+from typing import List
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.schemas.incentive_report import IncentiveReportSimple
-from app.schemas.odoo_record import Many2One
-from app.schemas.payg_account import PaygAccountRecord
 
-
-class EventType(BaseModel):
-    id: int = Field(
-        ..., description="The unique identifier for the Event Type.", example=1
-    )
+class EventTypeSchema(BaseModel):
     name: str = Field(
         ..., description="The name of the Event Type.", example="ACTIVATION"
     )
-    category: str = Field(
+    type: str = Field(
         ...,
-        description="The display name of the Event Type.",
+        description="The category of the Event Type.",
         example="Sales",
     )
 
 
-class IncentiveEventMinimalRecord(BaseModel):
+class EventCategorySchema(BaseModel):
+    name: str = Field(
+        ..., description="The name of the Event Type.", example="ACTIVATION"
+    )
+    color: str = Field(
+        ...,
+        description="The color associated with the Event Type.",
+        example="#FF0000",
+    )
+    value: float = Field(
+        ...,
+        description="The numeric value associated with the Event Type.",
+        example=150.75,
+    )
+    code: str = Field(
+        ...,
+        description="The code associated with the category.",
+        example="sales",
+    )
+
+
+class IncentiveEventMinimalSchema(BaseModel):
     category: str = Field(
         ...,
         description="The display name of the Event Type.",
@@ -35,7 +49,7 @@ class IncentiveEventMinimalRecord(BaseModel):
     )
 
 
-class IncentiveEventRecord(BaseModel):
+class IncentiveEventSchema(BaseModel):
     id: int = Field(
         ..., description="The unique identifier for the Account.", example=1
     )
@@ -49,12 +63,7 @@ class IncentiveEventRecord(BaseModel):
         description="The numeric value associated with the Incentive Event, such as a monetary amount or points.",
         example=150.75,
     )
-    currency_id: Many2One
-    event_type_id: EventType = Field(..., description="The type of Bonus.")
-    account_id: Union[PaygAccountRecord | bool] = Field(
-        ...,
-        description="A reference to the account associated with the Incentive Event.",
-    )
+    event_type_id: EventTypeSchema = Field(..., description="The type of Bonus.")
 
     @field_validator("event_date", mode="before")
     def parse_event_date(cls, value):
@@ -71,26 +80,12 @@ class IncentiveEventRecord(BaseModel):
         raise ValueError(f"Unsupported type for event_date: {type(value)}")
 
 
-class IncentiveEventResponse(BaseModel):
-    count: int = Field(
-        ..., description="The total number of records returned.", example=10
-    )
-    models: str = Field(
-        ...,
-        description="The name of the model being queried.",
-        example="incentive.event",
+class IncentiveEventSummarySchema(BaseModel):
+    event_categories: List[EventCategorySchema] = Field(
+        ..., description="A list of Incentive Category."
     )
     total_value: float = Field(
         ...,
-        description="The total value of all records returned.",
-        example=1500.75,
-    )
-    records: List[IncentiveEventRecord] = Field(
-        ..., description="A list of account records."
-    )
-
-
-class IncentiveEventCustomResponse(BaseModel):
-    report_ids: List[IncentiveReportSimple] = Field(
-        ..., description="A list of Incentive Report records."
+        description="The total value of all Incentive Events.",
+        example=150.75,
     )

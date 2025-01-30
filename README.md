@@ -60,6 +60,17 @@ gcloud run deploy app-agent-services \
 --set-secrets "ODOO_PASSWORD=odoo-automations:latest,OTP_SECRET=otp-secret:latest,ACCESS_TOKEN_SECRET=odoo-jwt-secret:latest,ACCESS_TOKEN_SECRET=mobile-mw-access-token-secret:latest,REFRESH_TOKEN_SECRET=mobile-mw-refresh-token-secret:latest" \
 --timeout=30
 ```
+STAGING
+```bash
+gcloud run deploy app-agent-services-staging \
+--port 8080 \
+--source . \
+--region europe-west2 \
+--allow-unauthenticated \
+--update-env-vars "ODOO_URL=https://odoo.baobabplus.com,ODOO_DB=prod-db,ODOO_USERNAME=automations,ODOO_UUID=12,ODOO_SLOW_PAYER_SEGMENTATION_LIST=4,OTP_INTERVAL=60,ENV=LOCAL,OTP_VALID_WINDOW=30,ACCESS_TOKEN_EXPIRE=60,REFRESH_TOKEN_EXPIRE=7" \
+--set-secrets "ODOO_PASSWORD=odoo-automations:latest,OTP_SECRET=otp-secret:latest,ACCESS_TOKEN_SECRET=odoo-jwt-secret:latest,ACCESS_TOKEN_SECRET=mobile-mw-access-token-secret:latest,REFRESH_TOKEN_SECRET=mobile-mw-refresh-token-secret:latest" \
+--timeout=60
+```
 
 PROD
 ```bash
@@ -68,7 +79,7 @@ gcloud run deploy app-agent-services \
 --source . \
 --region europe-west2 \
 --allow-unauthenticated \
---update-env-vars "ODOO_URL=https://odoo.baobabplus.com,ODOO_DB=prod-db,ODOO_USERNAME=automations,ODOO_UUID=12,ODOO_SLOW_PAYER_SEGMENTATION_LIST=4,OTP_INTERVAL=30,ENV=LOCAL,OTP_VALID_WINDOW=30,ACCESS_TOKEN_EXPIRE=60,REFRESH_TOKEN_EXPIRE=7" \
+--update-env-vars "ODOO_URL=https://odoo.baobabplus.com,ODOO_DB=prod-db,ODOO_USERNAME=automations,ODOO_UUID=12,ODOO_SLOW_PAYER_SEGMENTATION_LIST=4,OTP_INTERVAL=60,ENV=LOCAL,OTP_VALID_WINDOW=30,ACCESS_TOKEN_EXPIRE=60,REFRESH_TOKEN_EXPIRE=7" \
 --set-secrets "ODOO_PASSWORD=odoo-automations:latest,OTP_SECRET=otp-secret:latest,ACCESS_TOKEN_SECRET=odoo-jwt-secret:latest,ACCESS_TOKEN_SECRET=mobile-mw-access-token-secret:latest,REFRESH_TOKEN_SECRET=mobile-mw-refresh-token-secret:latest" \
 --timeout=60
 ```

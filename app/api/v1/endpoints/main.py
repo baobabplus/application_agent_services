@@ -1,5 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from typing import List
 
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+
+from app.schemas.country import CountrySchema
+from app.schemas.error import ErrorSchema
 from app.services.main import get_available_country as fetch_available_country
 
 router = APIRouter()
@@ -19,11 +24,22 @@ The response includes:
 
 This data can be used for rendering dropdowns or selection lists in the UI.
     """,
+    responses={
+        200: {
+            "model": List[CountrySchema],
+            "description": "List of available country",
+        },
+        500: {"model": ErrorSchema, "description": "Internal server error."},
+    },
 )
-def get_available_country():
+def get_available_country() -> List[CountrySchema]:
     try:
         return fetch_available_country()
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return JSONResponse(content=e.args[0], status_code=400)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        err_value = {
+            "error": "internal_server_error",
+            "error_description": str(e),
+        }
+        return JSONResponse(content=err_value, status_code=500)
