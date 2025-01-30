@@ -15,17 +15,17 @@ class TasksSchema(BaseModel):
     icon: str = Field(
         ...,
         description="The icon representing the component (e.g., a task or category).",
-        example="fa-user",
+        example="units-repossess-icon",
     )
     color: str = Field(
         ...,
         description="The color associated with the Event Type.",
-        example="#FF0000",
+        example="#F2BA11",
     )
     label: str = Field(
         ...,
         description="The label or name of the component.",
-        example="Users to follow",
+        example="Units to Repossess",
     )
     count: int = Field(
         ..., description="The count of items related to the component.", example=4
@@ -33,11 +33,11 @@ class TasksSchema(BaseModel):
     action: str = Field(
         ...,
         description="An action link or endpoint for the component.",
-        example="/api/v1/employee/unfollow",
+        example="/api/v1/employee/unit-repossess",
     )
 
 
-class SummarySchema(BaseModel):
+class SummarySimpleSchema(BaseModel):
     date_range: DateRangeSchema = Field(
         ..., description="The date range for the summary (e.g., '4 - 8 Nov')."
     )
@@ -49,8 +49,8 @@ class SummarySchema(BaseModel):
     action: str = Field(
         ..., description="An action link or endpoint related to the summary."
     )
-    tasks: List[TasksSchema] = Field(..., description="A list of tasks or categories.")
-    last_report_endpoint: str = Field(
-        "/api/v1/employee/report?period=previous",
-        description="Get last bonuses report",
-    )
+
+
+class SummarySchema(SummarySimpleSchema):
+    current_report_id: int = Field(..., description="The Current report ID", example=70)
+    last_report_id: int = Field(..., description="The last report ID", example=69)

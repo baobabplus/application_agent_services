@@ -1,11 +1,7 @@
 from datetime import date
-from typing import List, Union
+from typing import List
 
 from pydantic import BaseModel, Field, field_validator
-
-from app.schemas.incentive_report import IncentiveReportSimpleSchema
-from app.schemas.odoo_record import Many2One
-from app.schemas.payg_account import PaygAccountSchema
 
 
 class EventTypeSchema(BaseModel):
@@ -32,6 +28,11 @@ class EventCategorySchema(BaseModel):
         ...,
         description="The numeric value associated with the Event Type.",
         example=150.75,
+    )
+    code: str = Field(
+        ...,
+        description="The code associated with the category.",
+        example="sales",
     )
 
 
@@ -62,12 +63,7 @@ class IncentiveEventSchema(BaseModel):
         description="The numeric value associated with the Incentive Event, such as a monetary amount or points.",
         example=150.75,
     )
-    currency_id: Many2One
     event_type_id: EventTypeSchema = Field(..., description="The type of Bonus.")
-    account_id: Union[PaygAccountSchema | bool] = Field(
-        ...,
-        description="A reference to the account associated with the Incentive Event.",
-    )
 
     @field_validator("event_date", mode="before")
     def parse_event_date(cls, value):
@@ -92,10 +88,4 @@ class IncentiveEventSummarySchema(BaseModel):
         ...,
         description="The total value of all Incentive Events.",
         example=150.75,
-    )
-
-
-class IncentiveEventCustomSchema(BaseModel):
-    report_ids: List[IncentiveReportSimpleSchema] = Field(
-        ..., description="A list of Incentive Report records."
     )

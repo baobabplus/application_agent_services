@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.get(
-    "/homepage",
+    "/homepage/earnings",
     summary="Get Homepage",
     description="Returns ",
     responses={
@@ -27,7 +27,11 @@ async def get_homepage(user_context=Depends(verify_access_token)):
     except ValueError as e:
         return JSONResponse(content=e.args[0], status_code=400)
     except Exception as e:
-        return JSONResponse(content=e.args[0], status_code=500)
+        err_value = {
+            "error": "internal_server_error",
+            "error_description": str(e),
+        }
+        return JSONResponse(content=err_value, status_code=500)
 
 
 @router.get(
@@ -39,18 +43,6 @@ async def get_homepage(user_context=Depends(verify_access_token)):
         200: {
             "model": List[TasksSchema],
             "description": "List of tasks for the employee's homepage.",
-            "content": {
-                "application/json": {
-                    "example": [
-                        {
-                            "icon": "slow-payer-icon",
-                            "label": "Slow payers",
-                            "count": 4,
-                            "action": "/api/v1/employee/slow-payers",
-                        }
-                    ]
-                }
-            },
         }
     },
 )
@@ -60,4 +52,8 @@ async def get_homepage_tasks(user_context=Depends(verify_access_token)):
     except ValueError as e:
         return JSONResponse(content=e.args[0], status_code=400)
     except Exception as e:
-        return JSONResponse(content=e.args[0], status_code=500)
+        err_value = {
+            "error": "internal_server_error",
+            "error_description": str(e),
+        }
+        return JSONResponse(content=err_value, status_code=500)

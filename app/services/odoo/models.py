@@ -37,3 +37,24 @@ class Models:
 
     def get_order_column(self):
         return ["id", "create_date"]
+
+    def record_method(self, method_name, record_id):
+        return self.client.models.execute_kw(
+            self.client.db,
+            self.client.uid,
+            self.client.password,
+            self.model_name,
+            method_name,
+            [record_id],
+        )
+
+    def model_method(self, method_name, params):
+        return self.client.models.execute_kw(
+            self.client.db,
+            self.client.uid,
+            self.client.password,
+            self.model_name,
+            method_name,
+            [],
+            params,
+        )

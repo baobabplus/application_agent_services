@@ -1,4 +1,9 @@
+import json
+import logging
+import os
 from datetime import datetime, timezone
+
+import requests
 
 from app.core import settings as main_settings
 from app.core.odoo_config import settings as odoo_settings
@@ -131,3 +136,26 @@ class OTP:
                 refresh_token=refresh_token,
             ),
         )
+
+    def send_sms(self, otp, employee_id, otp_id):
+        SMS_URL = os.getenv("SMS_URL")
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": os.getenv("API_KEY_SMS_REQUEST"),
+        }
+        msg = f"Your OTP code for login is {otp}. It will expire in 10 minutes. Do not share it with anyone"
+        message_input = {
+            "msisdn": self.phone_number,
+            "msg": msg,
+            "priority": "high",
+            "client_app": "mobile_app_otp",
+            "sms_id": f"{employee_id}-{otp_id}",
+            "sms_ref": f"{employee_id}-{otp_id}-ref",
+            "callback": False,
+            "test": False,
+        }
+        response = requests.post(
+            SMS_URL, data=json.dumps(message_input), headers=headers
+        )
+        logging.info(f"Response: {response.text}")
+        return response

@@ -1,8 +1,10 @@
 from datetime import date
 from enum import Enum
+from typing import List
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.global_schema import CardSchema, FilterSchema, PaginationSchema
 from app.schemas.odoo_record import Many2One
 
 
@@ -59,3 +61,22 @@ class IncentiveReportSchema(BaseModel):
         if "start_date" in values and v < values["start_date"]:
             raise ValueError("End date cannot be earlier than start date")
         return v
+
+
+class IncentiveReportDetailsSchema(BaseModel):
+    list_id: str = Field(
+        ..., description="The unique identifier for the incentive report."
+    )
+    total_value: float = Field(
+        ..., description="The total value of the incentive report."
+    )
+    currency: str = Field(..., description="The currency code for the earnings.")
+    pagination: PaginationSchema = Field(
+        ..., description="The pagination details for the incentive report."
+    )
+    filters: List[FilterSchema] = Field(
+        ..., description="The list of filters for the incentive report."
+    )
+    cards: List[CardSchema] = Field(
+        ..., description="The list of incentive event cards."
+    )

@@ -46,7 +46,11 @@ def send_otp(
     except ValueError as e:
         return JSONResponse(content=e.args[0], status_code=400)
     except Exception as e:
-        return JSONResponse(content=e.args[0], status_code=500)
+        err_value = {
+            "error": "internal_server_error",
+            "error_description": str(e),
+        }
+        return JSONResponse(content=err_value, status_code=500)
 
 
 @router.post(
@@ -79,7 +83,11 @@ def verify_otp(
     except ValueError as e:
         return JSONResponse(content=e.args[0], status_code=400)
     except Exception as e:
-        return JSONResponse(content=e.args[0], status_code=500)
+        err_value = {
+            "error": "internal_server_error",
+            "error_description": str(e),
+        }
+        return JSONResponse(content=err_value, status_code=500)
 
 
 @refresh_routeur.post(
@@ -106,7 +114,11 @@ def refresh_access_token(payload: dict = Depends(verify_refresh_token)):
     except ValueError as e:
         return JSONResponse(content=e.args[0], status_code=400)
     except Exception as e:
-        return JSONResponse(content=e.args[0], status_code=500)
+        err_value = {
+            "error": "internal_server_error",
+            "error_description": str(e),
+        }
+        return JSONResponse(content=err_value, status_code=500)
 
 
 @user_router.post(
@@ -127,4 +139,8 @@ def logout(payload: dict = Depends(verify_refresh_token)):
     except ValueError as e:
         return JSONResponse(content=e.args[0], status_code=400)
     except Exception as e:
-        return JSONResponse(content=e.args[0], status_code=500)
+        err_value = {
+            "error": "internal_server_error",
+            "error_description": str(e),
+        }
+        return JSONResponse(content=err_value, status_code=500)

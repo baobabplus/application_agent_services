@@ -1,10 +1,7 @@
 from collections import defaultdict
 from typing import List
 
-from app.schemas.incentive_event import (
-    IncentiveEventMinimalSchema,
-    IncentiveEventSummarySchema,
-)
+from app.schemas.incentive_event import IncentiveEventMinimalSchema
 from app.schemas.screen import DateRangeSchema, SummarySchema, TasksSchema
 from app.services.odoo.service import OdooService
 
@@ -59,50 +56,16 @@ def _group_incentive_events_by_category(records):
     ]
 
 
-def _get_currency_from_records(records):
-    """
-    Extract the currency ID from a list of records, if available.
-
-    Args:
-        records (list): A list of incentive event records.
-
-    Returns:
-        str: The currency ID, or None if no records are available.
-    """
-    return records[0].currency_id if records else None
-
-
-def _get_summary_details(odoo_service: OdooService, current_report_id: int):
-    # Fetch incentive events
-    if current_report_id:
-        bonues_ids = odoo_service.search_bonuses(report_id=current_report_id["id"])
-    else:
-        bonues_ids = IncentiveEventSummarySchema(
-            count=0, models="incentive.event", records=[]
-        )
-    # Process incentive events
-    summary_details = _group_incentive_events_by_category(bonues_ids.records)
-    currency_id = _get_currency_from_records(bonues_ids.records)
-    total_value = sum([record.value for record in bonues_ids.records])
-    return SummarySchema(
-        date_range=DateRangeSchema(
-            start=current_report_id["start_date"], end=current_report_id["end_date"]
-        ),
-        total_earnings=total_value,
-        currency=currency_id,
-        details=summary_details,
-        action="/api/v1",
-        event_count=len(summary_details),
-    )
-
-
 def fetch_homepage(user_context: dict) -> SummarySchema:
     odoo_service = OdooService(user_context)
     status = "in_progress"
     latest_report_ids = odoo_service.search_latest_report_by_employee()
     current_report_id = latest_report_ids.get(status, False)
-    bonuses = odoo_service.search_bonuses(report_id=current_report_id["id"])
-    tasks = odoo_service.get_employee_tasks()
+    latest_report_id = latest_report_ids.get("done", False)
+    vals_report_id, bonuses = odoo_service.search_bonuses(
+        report_id=current_report_id["id"]
+    )
+    report_id = current_report_id["id"]
     return SummarySchema(
         total_earnings=bonuses.total_value,
         categories=bonuses.event_categories,
@@ -110,9 +73,10 @@ def fetch_homepage(user_context: dict) -> SummarySchema:
             start=current_report_id["start_date"],
             end=current_report_id["end_date"],
         ),
-        currency="Ar",
-        action="/test/",
-        tasks=tasks,
+        currency=user_context["currency_id"][1],
+        action=f"/api/v1/report/{report_id}/details",
+        current_report_id=report_id,
+        last_report_id=latest_report_id["id"],
     )
 
 

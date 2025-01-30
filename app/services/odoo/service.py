@@ -5,6 +5,14 @@ from typing import List, Optional
 
 from app.core.odoo_config import settings
 from app.schemas.employee import EmployeeProfileSchema, EmployeeSchema
+from app.schemas.global_schema import (
+    CardSchema,
+    CollapsedCardSchema,
+    ExpandedSchema,
+    FilterSchema,
+    PaginationSchema,
+    RowSchema,
+)
 from app.schemas.incentive_event import (
     EventCategorySchema,
     EventTypeSchema,
@@ -12,11 +20,18 @@ from app.schemas.incentive_event import (
     IncentiveEventSummarySchema,
 )
 from app.schemas.incentive_report import (
+    IncentiveReportDetailsSchema,
     IncentiveReportSchema,
     IncentiveReportSimpleSchema,
 )
-from app.schemas.payg_account import PaygAccountRecordsetSchema, PaygAccountSchema
-from app.schemas.screen import TasksSchema
+from app.schemas.payg_account import (
+    PaygAccountSchema,
+    SlowPayerCardSchema,
+    SlowPayerCollapsedCardSchema,
+    SlowPayerExpandedCardSchema,
+    SlowPayerSchema,
+)
+from app.schemas.screen import DateRangeSchema, SummarySimpleSchema, TasksSchema
 from app.schemas.token import TokenSchema
 from app.services.odoo.exceptions import UnauthorizedEmployeeException
 from app.utils.main import (
@@ -105,13 +120,63 @@ class OdooService:
 
     @check_can_use_application_agent
     def get_slower_payer_client_service(
-        self, employee_id: int, offset: int, limit: int, order: str
-    ):
-        account_ids = self.search_account_by_segmentation_and_responsible(
-            employee_id, offset, limit, order
+        self, offset: int, limit: int, order: str = "nb_days_overdue asc"
+    ) -> SlowPayerSchema:
+        account_ids, total_count = self.search_account_by_segmentation_and_responsible(
+            offset, limit, order
         )
-        return PaygAccountRecordsetSchema(
-            count=len(account_ids), models="payg.account", records=account_ids
+        cards = []
+        for account_id in account_ids:
+            collapsed_item = SlowPayerCollapsedCardSchema(
+                icon="slow-payer-icon",
+                icon_color="#F2BA11",
+                rows=[
+                    RowSchema(
+                        label="Next Commission",
+                        value="500 Ar",
+                    ),
+                    RowSchema(
+                        label="Product",
+                        value="Solar Home System",
+                    ),
+                ],
+                alert_text=f"{account_id['nb_days_overdue']} days late in payment",
+                alert_text_color="#FF0000",
+            )
+            Expanded_item = SlowPayerExpandedCardSchema(
+                rows=[
+                    RowSchema(label="Client phone number", value=None),
+                    RowSchema(label="Product name", value=None),
+                    RowSchema(label="Account age", value=None),
+                    RowSchema(label="Village", value=None),
+                ]
+            )
+            cards.append(
+                SlowPayerCardSchema(collapsed=collapsed_item, expanded=Expanded_item)
+            )
+        return SlowPayerSchema(
+            icon="slow-payer-icon",
+            title="Slow Payers",
+            total_value=len(account_ids),
+            pagination=PaginationSchema(
+                offset=offset,
+                limit=limit,
+                current_records=len(account_ids),
+                total_records=total_count,
+            ),
+            filters=[
+                FilterSchema(
+                    value="urgent",
+                    param="day_late",
+                    label="Urgent",
+                ),
+                FilterSchema(
+                    value="new",
+                    param="day_late",
+                    label="New",
+                ),
+            ],
+            cards=cards,
         )
 
     def set_refresh_token(self, employee_id: int, refresh_token: str):
@@ -163,7 +228,7 @@ class OdooService:
                 icon="slow-payer-icon",
                 label="Slow Payer",
                 count=30,
-                action="/api/v1/employee/slower-payer",
+                action="/api/v1/employee/tasks/slower-payer",
                 color="#F26522",
             ),
             TasksSchema(
@@ -224,11 +289,12 @@ class OdooService:
             ["responsible_agent_employee_id", "=", employee_id],
         ]
         fields = list(PaygAccountSchema.model_fields.keys())
-        account_id = self.model_payg_account.search(
+        all_account_ids = self.model_payg_account.search(domain=domain, fields=["id"])
+        account_ids = self.model_payg_account.search(
             domain=domain, fields=fields, limit=limit, offset=offset, order=order
         )
 
-        return account_id
+        return account_ids, len(all_account_ids)
 
     # incentive.report methods
 
@@ -256,6 +322,12 @@ class OdooService:
                 )
         return reports_ids
 
+    def search_inventive_report_by_id(self, report_id: int) -> IncentiveReportSchema:
+        fields = list(IncentiveReportSchema.model_fields.keys())
+        return self.model_incentive_report.search(
+            [["id", "=", report_id]], fields=fields
+        )
+
     def search_incentive_report_by_employee(
         self,
     ) -> List[IncentiveReportSchema]:
@@ -269,15 +341,6 @@ class OdooService:
         return incentive_report_ids
 
     # incentive.event methods
-    def search_bonuses_by_employee(self, period: str):
-        status = "in_progress" if period == "current" else "done"
-        latest_report_ids = self.search_latest_report_by_employee()
-        current_report_id = latest_report_ids.get(status, False)
-        if current_report_id:
-            return self.search_bonuses(report_id=current_report_id["id"])
-        return IncentiveEventSummarySchema(
-            count=0, models="incentive.event", total_value=0, records=[]
-        )
 
     def search_event_type(self):
         fields = list(EventTypeSchema.model_fields.keys())
@@ -294,63 +357,166 @@ class OdooService:
         event_date_end: Optional[date] = None,
         report_id: Optional[int] = None,
     ) -> IncentiveEventSummarySchema:
-        employee_valid_report = list(
-            map(lambda item: item["id"], self.search_incentive_report_by_employee())
-        )
+        valid_report_ids = self.search_incentive_report_by_employee()
+        employee_valid_report = list(map(lambda item: item["id"], valid_report_ids))
         if report_id and report_id not in employee_valid_report:
             return IncentiveEventSummarySchema(
                 count=0, models="incentive.event", total_value=0, records=[]
             )
         # Constants
-        mapping_event_type = {}
-        event_type_ids = self.search_event_type()
-        for event_type in event_type_ids:
-            mapping_event_type[event_type["name"]] = event_type["type"]
-        event_typ = list(mapping_event_type)
         employee_id = int(self.user_context["sub"])
 
         # Build domain filters
         domain = self._build_bonus_domain(
-            employee_id, event_date_start, event_date_end, event_typ, report_id
+            employee_id=employee_id,
+            event_date_start=event_date_start,
+            event_date_end=event_date_end,
+            category=None,
+            report_id=report_id,
         )
-
+        if report_id:
+            vals_report_id = list(
+                filter(lambda item: item["id"] == report_id, valid_report_ids)
+            )[0]
         # Fetch fields and records
         fields = list(IncentiveEventSchema.model_fields.keys())
-        record_ids = self.model_incentive_event.search(
-            domain=domain, fields=fields, limit=limit, offset=offset, order=order
+        record_ids, total_count = self.model_incentive_event.model_method(
+            "get_event_details",
+            {
+                "domain": domain,
+                "fields": fields,
+                "limit": limit,
+                "offset": offset,
+                "order": order,
+            },
         )
-
         # Enrich records
-        enriched_records, total_value = self._enrich_records(
-            record_ids, mapping_event_type
+        enriched_records, total_value = self._enrich_records(record_ids)
+
+        return vals_report_id, IncentiveEventSummarySchema(
+            event_categories=enriched_records, total_value=total_value
         )
 
-        return IncentiveEventSummarySchema(
-            event_categories=enriched_records, total_value=total_value
+    def _extract_color(self, value):
+        red = "#e3350e"
+        green = "#17871b"
+        return red if value < 0 else green
+
+    def fetch_bonuses_details_by_report(
+        self,
+        report_id,
+        limit: Optional[int] = -1,
+        offset: Optional[int] = 0,
+        order: Optional[str] = "event_date desc",
+        category: Optional[str] = None,
+    ) -> IncentiveReportDetailsSchema:
+        employee_id = self.user_context["sub"]
+        domain = self._build_bonus_domain(
+            employee_id=int(employee_id),
+            category=category,
+            report_id=report_id,
+        )
+        fields = list(IncentiveEventSchema.model_fields.keys())
+        record_ids, total_count = self.model_incentive_event.model_method(
+            "get_event_details",
+            {
+                "domain": domain,
+                "fields": fields,
+                "limit": limit,
+                "offset": offset,
+                "order": order,
+            },
+        )
+        events = []
+        currency = self.user_context["currency_id"][1]
+        filter_value: List[FilterSchema] = []
+        total_value = 0
+        for record_id in record_ids:
+            filter_id = FilterSchema(
+                value=record_id["event_category"]["code"],
+                param="event_category",
+                label=record_id["event_category"]["name"],
+            )
+            if filter_id not in filter_value:
+                filter_value.append(filter_id)
+
+            value = record_id["value"]
+            value_color = self._extract_color(value)
+            client_id = record_id["client_id"]
+            client_name = client_id["name"] if client_id.get("name") else "Unknown"
+            category = record_id["event_category"]
+            collapsed = CollapsedCardSchema(
+                icon=category["icon"],
+                icon_color=category["color"],
+                title=client_name,
+                value=value,
+                currency=currency,
+                value_color=value_color,
+                subtitle=category["name"],
+            )
+            expanded = ExpandedSchema(
+                rows=[
+                    RowSchema(label="Incentive Type", value="New Customer bonus"),
+                    RowSchema(
+                        label="Incentive Criteria", value=record_id["event_date"]
+                    ),
+                    RowSchema(label="Account", value="First time product purchase"),
+                    RowSchema(label="Commission amount", value=f"{value} {currency}"),
+                ]
+            )
+            events.append(
+                CardSchema(
+                    id=f"incentive_event_{record_id['event_id']}",
+                    expanded=expanded,
+                    collapsed=collapsed,
+                )
+            )
+            total_value += value
+        return IncentiveReportDetailsSchema(
+            list_id=f"incentive_report_{report_id}",
+            total_value=total_value,
+            currency=currency,
+            pagination=PaginationSchema(
+                offset=offset,
+                limit=limit,
+                current_records=len(record_ids),
+                total_records=total_count,
+            ),
+            filters=filter_value,
+            cards=events,
+        )
+
+    def fetch_bonuses_summary_by_report(self, report_id) -> SummarySimpleSchema:
+        vals_report_id, bonuses = self.search_bonuses(report_id=report_id)
+        return SummarySimpleSchema(
+            total_earnings=bonuses.total_value,
+            categories=bonuses.event_categories,
+            date_range=DateRangeSchema(
+                start=vals_report_id["start_date"],
+                end=vals_report_id["end_date"],
+            ),
+            currency=self.user_context["currency_id"][1],
+            action=f"/api/v1/report/{report_id}/details",
         )
 
     def _build_bonus_domain(
         self,
         employee_id: int,
-        event_date_start: Optional[date],
-        event_date_end: Optional[date],
-        event_type: List[str],
+        event_date_start: Optional[date] = None,
+        event_date_end: Optional[date] = None,
+        category: Optional[List[str]] = None,
         report_id: Optional[int] = None,
     ) -> List:
         """Build the domain for searching incentive events."""
         domain = [
             ["beneficiary_employee_id", "=", employee_id],
             ["event_status", "in", ["validated", "calculated"]],
-            ["event_type_id.code", "in", event_type],
         ]
+        if category:
+            domain.append(["event_type_id.type_id.code", "in", [category]])
         if report_id:
             domain.append(["report_id", "=", report_id])
         else:
-            domain = [
-                ["beneficiary_employee_id", "=", employee_id],
-                ["event_status", "in", ["validated", "calculated"]],
-                ["event_type_id.code", "in", event_type],
-            ]
             if event_date_start:
                 domain.append(
                     ["event_date", ">=", event_date_start.strftime("%Y-%m-%d")]
@@ -359,24 +525,24 @@ class OdooService:
                 domain.append(["event_date", "<=", event_date_end.strftime("%Y-%m-%d")])
         return domain
 
-    def _enrich_records(
-        self, record_ids: List[dict], mapping_event_type: dict
-    ) -> tuple:
+    def _enrich_records(self, record_ids: List[dict]) -> tuple:
         """Enrich records with event type and account details."""
         enriched_records = []
         total_value = 0
         event_type_value = dict()
         for record in record_ids:
-            # Enrich event type
-            if record.get("event_type_id"):
-                event_name = record["event_type_id"][1]
-                event_type = mapping_event_type[event_name]
-                if event_type not in event_type_value:
-                    event_type_value[event_type] = {
+            if record.get("event_category"):
+                event_type = record["event_category"]
+                event_type_name = event_type["name"]
+                event_type_color = event_type["color"]
+                event_type_code = event_type["code"]
+                if event_type_name not in event_type_value:
+                    event_type_value[event_type_name] = {
                         "value": 0,
-                        "color": STATIC_COLOR_MAPPING.get(event_type, "#000000"),
+                        "color": event_type_color,
+                        "code": event_type_code,
                     }
-                event_type_value[event_type]["value"] += record["value"]
+                event_type_value[event_type_name]["value"] += record["value"]
             total_value += record["value"]
         for item in event_type_value:
             enriched_records.append(
@@ -384,6 +550,7 @@ class OdooService:
                     name=item,
                     color=event_type_value[item]["color"],
                     value=event_type_value[item]["value"],
+                    code=event_type_value[item]["code"],
                 )
             )
         sorted_records = sorted(enriched_records, key=lambda x: x.value, reverse=True)

@@ -18,6 +18,7 @@ class EmployeeSchema(BaseModel):
     )
     generic_job_id: Many2One = Field(..., description="Generic job")
     company_id: Many2One
+    currency_id: Many2One = Field(..., description="Currency")
 
     class Config:
         from_attributes = True
