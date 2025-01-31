@@ -3,15 +3,15 @@ from typing import List
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 
-from app.schemas.employee import EmployeeProfileSchema
 from app.schemas.error import ErrorSchema
+from app.schemas.global_schema import TaskSchema
 from app.schemas.incentive_event import IncentiveEventSummarySchema
 from app.schemas.incentive_report import (
     IncentiveReportDetailsSchema,
     IncentiveReportSimpleSchema,
 )
-from app.schemas.payg_account import SlowPayerSchema
 from app.schemas.screen import SummarySimpleSchema
+from app.schemas.user import UserSchema
 from app.services.odoo.exceptions import EmployeeNotFoundException
 from app.services.odoo.service import OdooService
 from app.utils.main import verify_access_token
@@ -20,12 +20,12 @@ router = APIRouter()
 
 
 @router.get(
-    "/profile",
+    "/",
     summary="Get Employee Account Details",
     description="""Fetches the account details for the authenticated employee.
     The response includes information like the employee's name, loyality points, phone number, etc.""",
     responses={
-        200: {"model": EmployeeProfileSchema},
+        200: {"model": UserSchema},
         400: {
             "model": ErrorSchema,
             "description": "Invalid request or missing parameters.",
@@ -167,7 +167,7 @@ async def get_bonuses_details(
     description="""Returns a list of slow payers for the authenticated employee.""",
     responses={
         200: {
-            "model": SlowPayerSchema,
+            "model": TaskSchema,
             "description": "List of Slow payer for the current user.",
         },
         400: {
@@ -181,10 +181,44 @@ async def get_slow_payer(
     user_context=Depends(verify_access_token),
     offset: int = Query(0, description="Offset for pagination", ge=0),
     limit: int = Query(10, description="Number of records to fetch", ge=10, le=100),
-) -> SlowPayerSchema:
+) -> TaskSchema:
     try:
         service = OdooService(user_context)
         return service.get_slower_payer_client_service(limit=limit, offset=offset)
+    except ValueError as e:
+        return JSONResponse(content=e.args[0], status_code=400)
+    except Exception as e:
+        err_value = {
+            "error": "internal_server_error",
+            "error_description": str(e),
+        }
+        return JSONResponse(content=err_value, status_code=500)
+
+
+@router.get(
+    "/tasks/hypercare",
+    summary="Get Hypercare",
+    description="""Returns a list of hypercare at risk for the authenticated employee.""",
+    responses={
+        200: {
+            "model": TaskSchema,
+            "description": "List of hypercare at risk for the current user.",
+        },
+        400: {
+            "model": ErrorSchema,
+            "description": "Invalid report ID or request format.",
+        },
+        500: {"model": ErrorSchema, "description": "Internal server error."},
+    },
+)
+async def get_hypercare_at_risk(
+    user_context=Depends(verify_access_token),
+    offset: int = Query(0, description="Offset for pagination", ge=0),
+    limit: int = Query(10, description="Number of records to fetch", ge=10, le=100),
+) -> TaskSchema:
+    try:
+        service = OdooService(user_context)
+        return service.get_hypercare_at_risk_service(limit=limit, offset=offset)
     except ValueError as e:
         return JSONResponse(content=e.args[0], status_code=400)
     except Exception as e:

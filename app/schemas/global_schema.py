@@ -78,3 +78,66 @@ class CardSchema(BaseModel):
         ..., description="The collapsed view of the card."
     )
     expanded: ExpandedSchema = Field(..., description="The expanded view of the card.")
+
+
+class TaskCollapsedCardSchema(BaseModel):
+    icon: str = Field(
+        ...,
+        description="The icon representing the Card (e.g., a task or category).",
+        example="units-repossess-icon",
+    )
+    icon_color: str = Field(
+        ..., description="The color associated with the icon.", example="#FF0000"
+    )
+    title: str = Field(
+        ...,
+        description="The title of the Card.",
+        example="Jane Doe",
+    )
+    rows: Optional[List[RowSchema]] = Field(
+        ..., description="The list of rows for the collapsed card."
+    )
+    alert_text: Optional[str] = Field(
+        ...,
+        description="The alert text for the collapsed card.",
+        example="8 days late in payment",
+    )
+    alert_text_color: Optional[str] = Field(
+        ..., description="The color associated with the alert text.", example="#FF0000"
+    )
+
+
+class TaskExpandedCardSchema(BaseModel):
+    rows: List[RowSchema] = Field(
+        ..., description="The list of rows for the expanded card."
+    )
+
+
+class TaskCardSchema(BaseModel):
+    collapsed: TaskCollapsedCardSchema = Field(
+        ..., description="The collapsed view of the card."
+    )
+    expanded: TaskExpandedCardSchema = Field(
+        ..., description="The expanded view of the card."
+    )
+
+
+class TaskSchema(BaseModel):
+    icon: str = Field(
+        ...,
+        description="The icon representing the component (e.g., a task or category).",
+        example="units-repossess-icon",
+    )
+    total_value: float = Field(
+        ..., description="The number of the slow payer.", example=30
+    )
+    title: str = Field(..., description="The title of the block.", example="Slow Payer")
+    pagination: PaginationSchema = Field(
+        ..., description="The pagination details for the slow payer."
+    )
+    filters: List[FilterSchema] = Field(
+        ..., description="The list of filters for the slow payer."
+    )
+    cards: List[TaskCardSchema] = Field(
+        ..., description="The list of cards for the slow payer."
+    )

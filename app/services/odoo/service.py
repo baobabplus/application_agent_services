@@ -1,10 +1,11 @@
 import logging
+import random
 from datetime import date
 from functools import wraps
 from typing import List, Optional
 
 from app.core.odoo_config import settings
-from app.schemas.employee import EmployeeProfileSchema, EmployeeSchema
+from app.schemas.employee import EmployeeSchema
 from app.schemas.global_schema import (
     CardSchema,
     CollapsedCardSchema,
@@ -12,6 +13,10 @@ from app.schemas.global_schema import (
     FilterSchema,
     PaginationSchema,
     RowSchema,
+    TaskCardSchema,
+    TaskCollapsedCardSchema,
+    TaskExpandedCardSchema,
+    TaskSchema,
 )
 from app.schemas.incentive_event import (
     EventCategorySchema,
@@ -24,15 +29,10 @@ from app.schemas.incentive_report import (
     IncentiveReportSchema,
     IncentiveReportSimpleSchema,
 )
-from app.schemas.payg_account import (
-    PaygAccountSchema,
-    SlowPayerCardSchema,
-    SlowPayerCollapsedCardSchema,
-    SlowPayerExpandedCardSchema,
-    SlowPayerSchema,
-)
+from app.schemas.payg_account import PaygAccountSchema
 from app.schemas.screen import DateRangeSchema, SummarySimpleSchema, TasksSchema
 from app.schemas.token import TokenSchema
+from app.schemas.user import UserSchema
 from app.services.odoo.exceptions import UnauthorizedEmployeeException
 from app.utils.main import (
     create_access_token,
@@ -121,15 +121,25 @@ class OdooService:
     @check_can_use_application_agent
     def get_slower_payer_client_service(
         self, offset: int, limit: int, order: str = "nb_days_overdue asc"
-    ) -> SlowPayerSchema:
+    ) -> TaskSchema:
         account_ids, total_count = self.search_account_by_segmentation_and_responsible(
             offset, limit, order
         )
         cards = []
         for account_id in account_ids:
-            collapsed_item = SlowPayerCollapsedCardSchema(
+            sp_count = random.randint(1, 30)
+            if sp_count < 10:
+                alert_color = "#e0ce00"
+            elif sp_count > 30 and sp_count < 60:
+                alert_color = "#bf7404"
+            elif sp_count > 60:
+                alert_color = "#d12300"
+            else:
+                alert_color = "#000000"
+            collapsed_item = TaskCollapsedCardSchema(
                 icon="slow-payer-icon",
                 icon_color="#F2BA11",
+                title="Jane Doe",
                 rows=[
                     RowSchema(
                         label="Next Commission",
@@ -141,20 +151,20 @@ class OdooService:
                     ),
                 ],
                 alert_text=f"{account_id['nb_days_overdue']} days late in payment",
-                alert_text_color="#FF0000",
+                alert_text_color=alert_color,
             )
-            Expanded_item = SlowPayerExpandedCardSchema(
+            Expanded_item = TaskExpandedCardSchema(
                 rows=[
-                    RowSchema(label="Client phone number", value=None),
-                    RowSchema(label="Product name", value=None),
-                    RowSchema(label="Account age", value=None),
-                    RowSchema(label="Village", value=None),
+                    RowSchema(label="Client phone number", value="+261 32 68 510 46"),
+                    RowSchema(label="Product name", value="Solar Home System"),
+                    RowSchema(label="Account age", value="12 days"),
+                    RowSchema(label="Village", value="Ivato"),
                 ]
             )
             cards.append(
-                SlowPayerCardSchema(collapsed=collapsed_item, expanded=Expanded_item)
+                TaskCardSchema(collapsed=collapsed_item, expanded=Expanded_item)
             )
-        return SlowPayerSchema(
+        return TaskSchema(
             icon="slow-payer-icon",
             title="Slow Payers",
             total_value=len(account_ids),
@@ -174,6 +184,61 @@ class OdooService:
                     value="new",
                     param="day_late",
                     label="New",
+                ),
+            ],
+            cards=cards,
+        )
+
+    def get_hypercare_at_risk_service(
+        self, offset: int, limit: int, order: str = "nb_days_overdue asc"
+    ) -> TaskSchema:
+        hypercare_count = random.randint(1, 30)
+        if hypercare_count < 17:
+            alert_color = "#bf7404"
+        elif hypercare_count > 20:
+            alert_color = "#d12300"
+        else:
+            alert_color = "#000000"
+        cards = [
+            TaskCardSchema(
+                collapsed=TaskCollapsedCardSchema(
+                    icon="hypercare-icon",
+                    icon_color="#F2BA11",
+                    title="Jane Doe",
+                    rows=[],
+                    alert_text=f"{hypercare_count} days to hypercare end",
+                    alert_text_color=alert_color,
+                ),
+                expanded=TaskExpandedCardSchema(
+                    rows=[
+                        RowSchema(label="Client phone", value="+261 32 68 510 46"),
+                        RowSchema(label="Product name", value="Solar Home System"),
+                        RowSchema(label="number of days late", value="12"),
+                        RowSchema(label="Village", value="Ambohidatrimo"),
+                    ],
+                ),
+            ),
+        ]
+        return TaskSchema(
+            icon="hypercare-icon",
+            title="Hypercare at risk",
+            total_value=30,
+            pagination=PaginationSchema(
+                offset=offset,
+                limit=limit,
+                current_records=limit,
+                total_records=30,
+            ),
+            filters=[
+                FilterSchema(
+                    value="unreachable",
+                    param="type",
+                    label="Unreachable",
+                ),
+                FilterSchema(
+                    value="sav",
+                    param="type",
+                    label="SAV",
                 ),
             ],
             cards=cards,
@@ -201,11 +266,15 @@ class OdooService:
 
     def get_employee_profile(self):
         employee_id = self.search_employee_by_id(int(self.user_context["sub"]))
-        return EmployeeProfileSchema(
+        emp_uid = employee_id["id"]
+        picture_url = f"{settings.odoo_url}/web/image/hr.employee.public/{emp_uid}/image_512/image.jpeg"
+        return UserSchema(
+            sub=employee_id["id"],
             name=employee_id["name"],
-            mobile_phone=employee_id["mobile_phone"],
-            job_title=employee_id["generic_job_id"][1],
+            phonenumber=employee_id["mobile_phone"],
             loyality_points=10,
+            job_title=employee_id["generic_job_id"][1],
+            picture=picture_url,
         )
 
     def get_employee_tasks(self) -> List[TasksSchema]:

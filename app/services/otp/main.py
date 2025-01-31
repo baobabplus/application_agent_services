@@ -121,11 +121,13 @@ class OTP:
         picture_url = f"{odoo_settings.odoo_url}/web/image/hr.employee.public/{employee_id}/image_512/image.jpeg"
         refresh_token = create_refresh_token({"sub": employee_id})
         self.odoo_service.set_refresh_token(employee_id, refresh_token)
+        job_title = employee_details.get("generic_job_id", [0, "Unknown"])[1]
         return AuthSchema(
             user=UserSchema(
                 sub=employee_id,
                 name=employee_details["name"],
                 phonenumber=employee_details["mobile_phone"],
+                job_title=job_title,
                 loyality_points=10,
                 picture=picture_url,
             ),

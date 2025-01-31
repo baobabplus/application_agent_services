@@ -8,6 +8,7 @@ class UserSchema(BaseModel):
     loyality_points: int = Field(
         description="The loyality points of the user", example=100
     )
+    job_title: str = Field(description="The job title of the user")
     picture: str = Field(description="The picture of the user")
 
     class Config:

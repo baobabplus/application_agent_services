@@ -1,8 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from starlette.status import (
+    HTTP_403_FORBIDDEN,
     HTTP_422_UNPROCESSABLE_ENTITY,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
@@ -50,6 +51,20 @@ async def validation_exception_handler(request, exc: RequestValidationError):
             "error_description": str(exc._errors[0]),
         },
     )
+
+
+@app.exception_handler(HTTPException)
+async def forbidden_exception_handler(request, exc: HTTPException):
+    if exc.status_code == HTTP_403_FORBIDDEN:
+        return JSONResponse(
+            status_code=HTTP_403_FORBIDDEN,
+            content={
+                "error": "forbidden",
+                "error_description": exc.detail
+                or "You do not have permission to access this resource.",
+            },
+        )
+    raise exc
 
 
 @app.exception_handler(Exception)
