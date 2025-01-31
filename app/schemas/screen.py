@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -7,8 +7,8 @@ from app.schemas.incentive_event import EventCategorySchema
 
 
 class DateRangeSchema(BaseModel):
-    start: date = Field(..., description="The start date of the range.")
-    end: date = Field(..., description="The end date of the range.")
+    start: Optional[date] = Field(..., description="The start date of the range.")
+    end: Optional[date] = Field(..., description="The end date of the range.")
 
 
 class TasksSchema(BaseModel):

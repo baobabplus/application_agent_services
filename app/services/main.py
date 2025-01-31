@@ -60,6 +60,16 @@ def fetch_homepage(user_context: dict) -> SummarySchema:
     odoo_service = OdooService(user_context)
     status = "in_progress"
     latest_report_ids = odoo_service.search_latest_report_by_employee()
+    if not latest_report_ids:
+        return SummarySchema(
+            total_earnings=0,
+            categories=[],
+            date_range=DateRangeSchema(),
+            currency=user_context["currency_id"][1],
+            action="",
+            current_report_id=0,
+            last_report_id=0,
+        )
     current_report_id = latest_report_ids.get(status, False)
     latest_report_id = latest_report_ids.get("done", False)
     vals_report_id, bonuses = odoo_service.search_bonuses(
