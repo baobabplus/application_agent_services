@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
@@ -43,7 +43,7 @@ app = FastAPI()
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request, exc: RequestValidationError):
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
     return JSONResponse(
         status_code=HTTP_422_UNPROCESSABLE_ENTITY,
         content={
@@ -54,8 +54,17 @@ async def validation_exception_handler(request, exc: RequestValidationError):
 
 
 @app.exception_handler(HTTPException)
-async def forbidden_exception_handler(request, exc: HTTPException):
-    if exc.status_code == HTTP_403_FORBIDDEN:
+async def http_exception_handler(request: Request, exc: HTTPException):
+    if exc.status_code == 400:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "bad_request",
+                "error_description": exc.detail
+                or "Invalid request parameters or payload.",
+            },
+        )
+    elif exc.status_code == HTTP_403_FORBIDDEN:
         return JSONResponse(
             status_code=HTTP_403_FORBIDDEN,
             content={
@@ -68,7 +77,7 @@ async def forbidden_exception_handler(request, exc: HTTPException):
 
 
 @app.exception_handler(Exception)
-async def internal_exception_handler(request, exc: Exception):
+async def internal_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=HTTP_500_INTERNAL_SERVER_ERROR,
         content={
