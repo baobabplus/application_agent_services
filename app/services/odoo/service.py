@@ -98,7 +98,7 @@ class OdooService:
 
     def search_employee_by_phone(self, phone_number: int):
         phone_number = validate_and_extract_country(phone_number)["formatted_number"]
-        fields = ["id", "can_use_application_agent"]
+        fields = ["id", "can_use_application_agent", "company_id"]
         employee_id = self.model_hr_employee.search(
             domain=[["mobile_phone", "=", phone_number]], fields=fields
         )

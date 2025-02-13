@@ -214,3 +214,7 @@ def filter_latest_event_by_status(data):
         item["end_date"] = item["end_date"]
 
     return latest_by_status
+
+
+def get_lang_from_company(company_id: int):
+    return "en" if company_id == 12 else "fr"

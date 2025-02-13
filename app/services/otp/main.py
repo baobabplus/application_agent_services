@@ -18,6 +18,7 @@ from app.utils.main import (
     create_refresh_token,
     generate_secret,
     generate_totp,
+    get_lang_from_company,
     validate_and_extract_country,
     validate_totp,
 )
@@ -59,6 +60,7 @@ class OTP:
             secret = self._generate_secret()
             otp = generate_totp(secret)
             self.can_generate_new_otp()
+            company_id = employee_id[0]["company_id"][0]
             employee_id = employee_id[0]["id"]
             self.odoo_service.model_sms_otp.create(
                 {
@@ -70,7 +72,9 @@ class OTP:
             )
             is_prod = main_settings.service_env.upper() not in ["LOCAL", "PREPROD"]
             message = f"OTP Sent to {self.phone_number}"
-            if is_prod:
+            lang = get_lang_from_company(company_id)
+            if is_prod and self.phone_number in self._authorized_phone_number():
+                self.send_sms(otp, employee_id, self.phone_number, lang=lang)
                 return OTPResponseSchema(message=message)
             else:
                 return OTPResponseSchema(
@@ -139,16 +143,22 @@ class OTP:
             ),
         )
 
-    def send_sms(self, otp, employee_id, otp_id):
+    def _authorized_phone_number(self):
+        return ["+261383363158", "+261348176051"]
+
+    def send_sms(self, otp, employee_id, otp_id, lang="en"):
         SMS_URL = os.getenv("SMS_URL")
         headers = {
             "Content-Type": "application/json",
             "x-api-key": os.getenv("API_KEY_SMS_REQUEST"),
         }
-        msg = f"Your OTP code for login is {otp}. It will expire in 10 minutes. Do not share it with anyone"
+        msg = {
+            "en": f"Your OTP code is {otp}. It expires in 1 minute. Do not share this code with anyone.",
+            "fr": f"Votre code OTP est {otp}. Il expire dans 1 minute. Ne partagez pas ce code avec quelqu'un.",
+        }
         message_input = {
             "msisdn": self.phone_number,
-            "msg": msg,
+            "msg": msg.get(lang),
             "priority": "high",
             "client_app": "mobile_app_otp",
             "sms_id": f"{employee_id}-{otp_id}",
