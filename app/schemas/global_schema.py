@@ -53,6 +53,36 @@ class CollapsedCardSchema(BaseModel):
     )
 
 
+class ComponentSchema(BaseModel):
+    type: str = Field(
+        ..., description="The type of the component.", example="headingAndField"
+    )
+    heading: Optional[str] = Field(
+        None, description="The heading of the component.", example="Commission amount"
+    )
+    field: Optional[str] = Field(
+        None, description="The field of the component.", example="1000 Ar"
+    )
+    isCollapsed: Optional[bool] = Field(
+        False, description="The collapsed status of the component.", example=False
+    )
+    items: Optional[List[str]] = Field(
+        list, description="The list of items for the component."
+    )
+
+
+class CardComponentSchema(BaseModel):
+    groupingName: str = Field(
+        ..., description="The name of the grouping.", example="Sales"
+    )
+    mainTitle: str = Field(
+        ..., description="The main title of the component.", example="Jane Doe"
+    )
+    components: List[ComponentSchema] = Field(
+        list, description="The list of components for the card."
+    )
+
+
 class RowSchema(BaseModel):
     label: str = Field(
         ..., description="The label for the row.", example="Incentive Type"
@@ -139,5 +169,8 @@ class TaskSchema(BaseModel):
         ..., description="The list of filters for the slow payer."
     )
     cards: List[TaskCardSchema] = Field(
-        ..., description="The list of cards for the slow payer."
+        list, description="The list of cards for the slow payer."
+    )
+    component_cards: List[CardComponentSchema] = Field(
+        list, description="The list of cards for the slow payer."
     )
