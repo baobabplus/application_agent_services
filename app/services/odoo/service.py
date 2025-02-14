@@ -1,6 +1,6 @@
 import logging
 import random
-from datetime import date
+from datetime import date, datetime, timedelta
 from functools import wraps
 from typing import List, Optional
 
@@ -17,6 +17,7 @@ from app.schemas.global_schema import (
     TaskCollapsedCardSchema,
     TaskExpandedCardSchema,
     TaskSchema,
+    TextTranslationSchema,
 )
 from app.schemas.incentive_event import (
     EventCategorySchema,
@@ -38,6 +39,8 @@ from app.utils.main import (
     create_access_token,
     create_refresh_token,
     filter_latest_event_by_status,
+    get_filter,
+    get_lang_from_company,
     validate_and_extract_country,
 )
 
@@ -56,6 +59,11 @@ STATIC_COLOR_MAPPING = {
 class OdooService:
     def __init__(self, user_context: dict = None) -> None:
         self.user_context = user_context or {}
+        self.lang = (
+            get_lang_from_company(self.user_context["company_id"][0])
+            if user_context
+            else "en"
+        )
         self.odoo_client = OdooAPI()
         self.model_hr_employee = Models(
             client=self.odoo_client, model_name="hr.employee"
@@ -98,7 +106,7 @@ class OdooService:
 
     def search_employee_by_phone(self, phone_number: int):
         phone_number = validate_and_extract_country(phone_number)["formatted_number"]
-        fields = ["id", "can_use_application_agent"]
+        fields = ["id", "can_use_application_agent", "company_id"]
         employee_id = self.model_hr_employee.search(
             domain=[["mobile_phone", "=", phone_number]], fields=fields
         )
@@ -120,13 +128,44 @@ class OdooService:
 
     @check_can_use_application_agent
     def get_slower_payer_client_service(
-        self, offset: int, limit: int, order: str = "nb_days_overdue asc"
+        self,
+        offset: int,
+        limit: int,
+        order: str = "nb_days_overdue asc",
+        day_late: Optional[str] = None,
     ) -> TaskSchema:
+        segmentations = settings.odoo_account_segmentation_slow_payer.split(",")
+        segmentation_ids = [
+            int(segmentation_id)
+            for segmentation_id in segmentations
+            if segmentation_id.isdigit()
+        ]
         account_ids, total_count = self.search_account_by_segmentation_and_responsible(
-            offset, limit, order
+            offset, limit, order, segmentation_ids=segmentation_ids
         )
         cards = []
+        filter_day_late_new = get_filter("day_late", "new", self.lang)
+        filter_day_late_urgent = get_filter("day_late", "urgent", self.lang)
+        if day_late and day_late == "new":
+            account_ids = list(
+                filter(
+                    lambda account_id: account_id["nb_days_overdue"] <= 15, account_ids
+                )
+            )
+        elif day_late and day_late == "urgent":
+            account_ids = list(
+                filter(
+                    lambda account_id: account_id["nb_days_overdue"] > 15, account_ids
+                )
+            )
+        else:
+            account_ids = account_ids
         for account_id in account_ids:
+            filters = []
+            if account_id["nb_days_overdue"] <= 15:
+                filters.append(filter_day_late_new)
+            elif account_id["nb_days_overdue"] > 15:
+                filters.append(filter_day_late_urgent)
             sp_count = random.randint(1, 30)
             if sp_count < 10:
                 alert_color = "#e0ce00"
@@ -142,12 +181,16 @@ class OdooService:
                 title="Jane Doe",
                 rows=[
                     RowSchema(
-                        label="Next Commission",
-                        value="500 Ar",
+                        label=TextTranslationSchema(
+                            en="Nex commission", fr="Prochaine commission"
+                        ),
+                        value=TextTranslationSchema(en="500 Ar", fr="500 Ar"),
                     ),
                     RowSchema(
-                        label="Product",
-                        value="Solar Home System",
+                        label=TextTranslationSchema(en="Product", fr="Produit"),
+                        value=TextTranslationSchema(
+                            en="Solar Home System", fr="Solar Home System"
+                        ),
                     ),
                 ],
                 alert_text=f"{account_id['nb_days_overdue']} days late in payment",
@@ -155,14 +198,38 @@ class OdooService:
             )
             Expanded_item = TaskExpandedCardSchema(
                 rows=[
-                    RowSchema(label="Client phone number", value="+261 32 68 510 46"),
-                    RowSchema(label="Product name", value="Solar Home System"),
-                    RowSchema(label="Account age", value="12 days"),
-                    RowSchema(label="Village", value="Ivato"),
+                    RowSchema(
+                        label=TextTranslationSchema(
+                            en="Client phone number", fr="Numéro de téléphone du client"
+                        ),
+                        value=TextTranslationSchema(
+                            en="+261 32 68 510 46", fr="+261 32 68 510 46"
+                        ),
+                    ),
+                    RowSchema(
+                        label=TextTranslationSchema(
+                            en="Product name", fr="Nom du produit"
+                        ),
+                        value=TextTranslationSchema(
+                            en="Solar Home System", fr="Solar Home System"
+                        ),
+                    ),
+                    RowSchema(
+                        label=TextTranslationSchema(
+                            en="Account age", fr="Age du compte"
+                        ),
+                        value=TextTranslationSchema(en="12 days", fr="12 jours"),
+                    ),
+                    RowSchema(
+                        label=TextTranslationSchema(en="Village", fr="Village"),
+                        value=TextTranslationSchema(en="Ivato", fr="Ivato"),
+                    ),
                 ]
             )
             cards.append(
-                TaskCardSchema(collapsed=collapsed_item, expanded=Expanded_item)
+                TaskCardSchema(
+                    filters=filters, collapsed=collapsed_item, expanded=Expanded_item
+                )
             )
         return TaskSchema(
             icon="slow-payer-icon",
@@ -175,72 +242,98 @@ class OdooService:
                 total_records=total_count,
             ),
             filters=[
-                FilterSchema(
-                    value="urgent",
-                    param="day_late",
-                    label="Urgent",
-                ),
-                FilterSchema(
-                    value="new",
-                    param="day_late",
-                    label="New",
-                ),
+                filter_day_late_new,
+                filter_day_late_urgent,
             ],
             cards=cards,
         )
 
     def get_hypercare_at_risk_service(
-        self, offset: int, limit: int, order: str = "nb_days_overdue asc"
+        self, offset: int, limit: int, order: str = "registration_date desc"
     ) -> TaskSchema:
-        hypercare_count = random.randint(1, 30)
-        if hypercare_count < 17:
-            alert_color = "#bf7404"
-        elif hypercare_count > 20:
-            alert_color = "#d12300"
-        else:
-            alert_color = "#000000"
-        cards = [
-            TaskCardSchema(
-                collapsed=TaskCollapsedCardSchema(
-                    icon="hypercare-icon",
-                    icon_color="#F2BA11",
-                    title="Jane Doe",
-                    rows=[],
-                    alert_text=f"{hypercare_count} days to hypercare end",
-                    alert_text_color=alert_color,
-                ),
-                expanded=TaskExpandedCardSchema(
-                    rows=[
-                        RowSchema(label="Client phone", value="+261 32 68 510 46"),
-                        RowSchema(label="Product name", value="Solar Home System"),
-                        RowSchema(label="number of days late", value="12"),
-                        RowSchema(label="Village", value="Ambohidatrimo"),
-                    ],
-                ),
-            ),
+        segmentations = settings.odoo_account_segmentation_hypercare.split(",")
+        segmentation_ids = [
+            int(segmentation_id)
+            for segmentation_id in segmentations
+            if segmentation_id.isdigit()
         ]
+        account_ids, total_count = self.search_account_by_segmentation_and_responsible(
+            offset,
+            limit,
+            order,
+            segmentation_ids=segmentation_ids,
+            account_status="disabled",
+        )
+
+        filter_category_sav = get_filter("category", "sav", self.lang)
+        filter_category_unreachable = get_filter("category", "unreachable", self.lang)
+
+        cards = []
+        for account_id in account_ids:
+            registration_date = datetime.strptime(
+                account_id["registration_date"], "%Y-%m-%d %H:%M:%S"
+            )
+            hypercare_end = registration_date + timedelta(days=75)
+            hypercare_date_left = hypercare_end - datetime.now()
+            if hypercare_date_left.days < 17:
+                alert_color = "#bf7404"
+            elif hypercare_date_left.days > 20:
+                alert_color = "#d12300"
+            else:
+                alert_color = "#000000"
+            filters = []
+            cards.append(
+                TaskCardSchema(
+                    filters=filters,
+                    collapsed=TaskCollapsedCardSchema(
+                        icon="hypercare-icon",
+                        icon_color="#F2BA11",
+                        title=account_id["client_id"][1],
+                        rows=[],
+                        alert_text=f"{hypercare_date_left.days} days to hypercare end",
+                        alert_text_color=alert_color,
+                    ),
+                    expanded=TaskExpandedCardSchema(
+                        rows=[
+                            RowSchema(
+                                label=TextTranslationSchema(
+                                    en="Client phone number",
+                                    fr="Numéro de téléphone du client",
+                                ),
+                                value=TextTranslationSchema(
+                                    en="+261 32 68 510 46", fr="+261 32 68 510 46"
+                                ),
+                            ),
+                            RowSchema(
+                                label=TextTranslationSchema(
+                                    en="Product name", fr="Nom du produit"
+                                ),
+                                value=TextTranslationSchema(
+                                    en="Solar Home System", fr="Solar Home System"
+                                ),
+                            ),
+                            RowSchema(
+                                label=TextTranslationSchema(en="Village", fr="Village"),
+                                value=TextTranslationSchema(
+                                    en="Ambohidratrimo", fr="Ambohidratrimo"
+                                ),
+                            ),
+                        ],
+                    ),
+                )
+            )
+
         return TaskSchema(
             icon="hypercare-icon",
             title="Hypercare at risk",
-            total_value=30,
+            total_value=len(account_ids),
             pagination=PaginationSchema(
                 offset=offset,
                 limit=limit,
                 current_records=limit,
-                total_records=30,
+                total_records=total_count,
             ),
-            filters=[
-                FilterSchema(
-                    value="unreachable",
-                    param="type",
-                    label="Unreachable",
-                ),
-                FilterSchema(
-                    value="sav",
-                    param="type",
-                    label="SAV",
-                ),
-            ],
+            filters=[filter_category_sav, filter_category_unreachable],
             cards=cards,
         )
 
@@ -344,19 +437,20 @@ class OdooService:
     # payg_account methods
     @check_can_use_application_agent
     def search_account_by_segmentation_and_responsible(
-        self, offset: int, limit: int, order: str
+        self,
+        offset: int,
+        limit: int,
+        order: str,
+        segmentation_ids: List[int],
+        account_status: str = None,
     ):
-        segmentations = settings.odoo_account_segmentation_slow_payer.split(",")
-        segmentation_ids = [
-            int(segmentation_id)
-            for segmentation_id in segmentations
-            if segmentation_id.isdigit()
-        ]
         employee_id = int(self.user_context["sub"])
         domain = [
             ["account_segmentation_id", "in", segmentation_ids],
             ["responsible_agent_employee_id", "=", employee_id],
         ]
+        if account_status:
+            domain.append(["account_status", "=", account_status])
         fields = list(PaygAccountSchema.model_fields.keys())
         all_account_ids = self.model_payg_account.search(domain=domain, fields=["id"])
         account_ids = self.model_payg_account.search(
@@ -525,12 +619,37 @@ class OdooService:
             )
             expanded = ExpandedSchema(
                 rows=[
-                    RowSchema(label="Incentive Type", value="New Customer bonus"),
                     RowSchema(
-                        label="Incentive Criteria", value=record_id["event_date"]
+                        label=TextTranslationSchema(
+                            en="Incentive type", fr="Type d'évènement"
+                        ),
+                        value=TextTranslationSchema(
+                            en="New customer bonus", fr="Nouveau bonus client"
+                        ),
                     ),
-                    RowSchema(label="Account", value="First time product purchase"),
-                    RowSchema(label="Commission amount", value=f"{value} {currency}"),
+                    RowSchema(
+                        label=TextTranslationSchema(
+                            en="Incentive criteria", fr="Critères de l'évènements"
+                        ),
+                        value=TextTranslationSchema(
+                            en=record_id["event_date"], fr=record_id["event_date"]
+                        ),
+                    ),
+                    RowSchema(
+                        label=TextTranslationSchema(en="Account", fr="Compte"),
+                        value=TextTranslationSchema(
+                            en="First time product purchase",
+                            fr="Premier achat de produit",
+                        ),
+                    ),
+                    RowSchema(
+                        label=TextTranslationSchema(
+                            en="Commission amount", fr="Montant de la commission"
+                        ),
+                        value=TextTranslationSchema(
+                            en=f"{value} {currency}", fr=f"{value} {currency}"
+                        ),
+                    ),
                 ]
             )
             events.append(

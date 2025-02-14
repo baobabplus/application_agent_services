@@ -56,9 +56,8 @@ gcloud run deploy app-agent-services \
 --source . \
 --region europe-west2 \
 --allow-unauthenticated \
---update-env-vars "ODOO_URL=https://odoo.baobabplus.com,ODOO_DB=prod-db,ODOO_USERNAME=automations,ODOO_UUID=12,ODOO_SLOW_PAYER_SEGMENTATION_LIST=4,OTP_INTERVAL=60,ENV=LOCAL,OTP_VALID_WINDOW=30,ACCESS_TOKEN_EXPIRE=60,REFRESH_TOKEN_EXPIRE=7" \
---set-secrets "ODOO_PASSWORD=odoo-automations:latest,OTP_SECRET=otp-secret:latest,ACCESS_TOKEN_SECRET=odoo-jwt-secret:latest,ACCESS_TOKEN_SECRET=mobile-mw-access-token-secret:latest,REFRESH_TOKEN_SECRET=mobile-mw-refresh-token-secret:latest" \
---timeout=60
+--update-env-vars "ODOO_URL=https://odoo.baobabplus.com,ODOO_DB=prod-db,ODOO_USERNAME=automations,ODOO_UUID=12,ODOO_SLOW_PAYER_SEGMENTATION_LIST=4,OTP_INTERVAL=60,ENV=PREPROD,OTP_VALID_WINDOW=30,ACCESS_TOKEN_EXPIRE=60,REFRESH_TOKEN_EXPIRE=7,SMS_URL=https://sms-webhook-middleware-gateway-3cs15c8g.nw.gateway.dev/sms/send,ODOO_HYPERCARE_SEGMENTATION_LIST=6" \
+--set-secrets "ODOO_PASSWORD=odoo-automations:latest,OTP_SECRET=otp-secret:latest,ACCESS_TOKEN_SECRET=odoo-jwt-secret:latest,ACCESS_TOKEN_SECRET=mobile-mw-access-token-secret:latest,REFRESH_TOKEN_SECRET=mobile-mw-refresh-token-secret:latest,API_KEY_SMS_REQUEST=api_key_sms_request:latest"
 ```
 STAGING
 ```bash
@@ -67,8 +66,8 @@ gcloud run deploy app-agent-services-staging \
 --source . \
 --region europe-west2 \
 --allow-unauthenticated \
---update-env-vars "ODOO_URL=https://odoo.baobabplus.com,ODOO_DB=prod-db,ODOO_USERNAME=automations,ODOO_UUID=12,ODOO_SLOW_PAYER_SEGMENTATION_LIST=4,OTP_INTERVAL=60,ENV=LOCAL,OTP_VALID_WINDOW=30,ACCESS_TOKEN_EXPIRE=60,REFRESH_TOKEN_EXPIRE=7" \
---set-secrets "ODOO_PASSWORD=odoo-automations:latest,OTP_SECRET=otp-secret:latest,ACCESS_TOKEN_SECRET=odoo-jwt-secret:latest,ACCESS_TOKEN_SECRET=mobile-mw-access-token-secret:latest,REFRESH_TOKEN_SECRET=mobile-mw-refresh-token-secret:latest" \
+--update-env-vars "ODOO_URL=https://odoo.baobabplus.com,ODOO_DB=prod-db,ODOO_USERNAME=automations,ODOO_UUID=12,ODOO_SLOW_PAYER_SEGMENTATION_LIST=4,OTP_INTERVAL=60,ENV=PROD,OTP_VALID_WINDOW=30,ACCESS_TOKEN_EXPIRE=60,REFRESH_TOKEN_EXPIRE=7,SMS_URL=https://sms-webhook-middleware-gateway-3cs15c8g.nw.gateway.dev/sms/send,ODOO_HYPERCARE_SEGMENTATION_LIST=6" \
+--set-secrets "ODOO_PASSWORD=odoo-automations:latest,OTP_SECRET=otp-secret:latest,ACCESS_TOKEN_SECRET=odoo-jwt-secret:latest,ACCESS_TOKEN_SECRET=mobile-mw-access-token-secret:latest,REFRESH_TOKEN_SECRET=mobile-mw-refresh-token-secret:latest,API_KEY_SMS_REQUEST=api_key_sms_request:latest" \
 --timeout=60
 ```
 
@@ -79,8 +78,8 @@ gcloud run deploy app-agent-services \
 --source . \
 --region europe-west2 \
 --allow-unauthenticated \
---update-env-vars "ODOO_URL=https://odoo.baobabplus.com,ODOO_DB=prod-db,ODOO_USERNAME=automations,ODOO_UUID=12,ODOO_SLOW_PAYER_SEGMENTATION_LIST=4,OTP_INTERVAL=60,ENV=PROD,OTP_VALID_WINDOW=30,ACCESS_TOKEN_EXPIRE=60,REFRESH_TOKEN_EXPIRE=7" \
---set-secrets "ODOO_PASSWORD=odoo-automations:latest,OTP_SECRET=otp-secret:latest,ACCESS_TOKEN_SECRET=odoo-jwt-secret:latest,ACCESS_TOKEN_SECRET=mobile-mw-access-token-secret:latest,REFRESH_TOKEN_SECRET=mobile-mw-refresh-token-secret:latest" \
+--update-env-vars "ODOO_URL=https://odoo.baobabplus.com,ODOO_DB=prod-db,ODOO_USERNAME=automations,ODOO_UUID=12,ODOO_SLOW_PAYER_SEGMENTATION_LIST=4,OTP_INTERVAL=60,ENV=PROD,OTP_VALID_WINDOW=30,ACCESS_TOKEN_EXPIRE=60,REFRESH_TOKEN_EXPIRE=7,SMS_URL=https://sms-webhook-middleware-gateway-3cs15c8g.nw.gateway.dev/sms/send,ODOO_HYPERCARE_SEGMENTATION_LIST=6" \
+--set-secrets "ODOO_PASSWORD=odoo-automations:latest,OTP_SECRET=otp-secret:latest,ACCESS_TOKEN_SECRET=odoo-jwt-secret:latest,ACCESS_TOKEN_SECRET=mobile-mw-access-token-secret:latest,REFRESH_TOKEN_SECRET=mobile-mw-refresh-token-secret:latest,API_KEY_SMS_REQUEST=api_key_sms_request:latest" \
 --timeout=60
 ```
 ## Environment Variable Structure

@@ -3,6 +3,11 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+class TextTranslationSchema(BaseModel):
+    en: str = Field(..., description="The English translation.", example="Sales")
+    fr: str = Field(..., description="The French translation.", example="Ventes")
+
+
 class PaginationSchema(BaseModel):
     offset: int = Field(0, description="The number of records to skip.", example=0)
     limit: int = Field(10, description="The number of records to fetch.", example=10)
@@ -21,8 +26,8 @@ class FilterSchema(BaseModel):
     param: str = Field(
         ..., description="The parameter to filter the data.", example="sales"
     )
-    label: str = Field(
-        ..., description="The label to display in the filter.", example="Sales"
+    label: TextTranslationSchema = Field(
+        ..., description="The label to display in the filter."
     )
 
     def __eq__(self, other):
@@ -53,11 +58,41 @@ class CollapsedCardSchema(BaseModel):
     )
 
 
+class ComponentSchema(BaseModel):
+    type: str = Field(
+        ..., description="The type of the component.", example="headingAndField"
+    )
+    heading: Optional[str] = Field(
+        None, description="The heading of the component.", example="Commission amount"
+    )
+    field: Optional[str] = Field(
+        None, description="The field of the component.", example="1000 Ar"
+    )
+    isCollapsed: Optional[bool] = Field(
+        False, description="The collapsed status of the component.", example=False
+    )
+    items: Optional[List[str]] = Field(
+        list, description="The list of items for the component."
+    )
+
+
+class CardComponentSchema(BaseModel):
+    groupingName: str = Field(
+        ..., description="The name of the grouping.", example="Sales"
+    )
+    mainTitle: str = Field(
+        ..., description="The main title of the component.", example="Jane Doe"
+    )
+    components: List[ComponentSchema] = Field(
+        list, description="The list of components for the card."
+    )
+
+
 class RowSchema(BaseModel):
-    label: str = Field(
+    label: TextTranslationSchema = Field(
         ..., description="The label for the row.", example="Incentive Type"
     )
-    value: Optional[str] = Field(
+    value: Optional[TextTranslationSchema] = Field(
         ..., description="The value for the row.", example="New Customer bonus"
     )
 
@@ -114,6 +149,9 @@ class TaskExpandedCardSchema(BaseModel):
 
 
 class TaskCardSchema(BaseModel):
+    filters: List[FilterSchema] = Field(
+        [], description="The list of filters for the slow payer."
+    )
     collapsed: TaskCollapsedCardSchema = Field(
         ..., description="The collapsed view of the card."
     )
@@ -128,16 +166,17 @@ class TaskSchema(BaseModel):
         description="The icon representing the component (e.g., a task or category).",
         example="units-repossess-icon",
     )
-    total_value: float = Field(
-        ..., description="The number of the slow payer.", example=30
-    )
+    total_value: float = Field(..., description="The number of the tasks.", example=30)
     title: str = Field(..., description="The title of the block.", example="Slow Payer")
     pagination: PaginationSchema = Field(
-        ..., description="The pagination details for the slow payer."
+        ..., description="The pagination details for the tasks."
     )
     filters: List[FilterSchema] = Field(
-        ..., description="The list of filters for the slow payer."
+        ..., description="The list of filters for the tasks."
     )
     cards: List[TaskCardSchema] = Field(
-        ..., description="The list of cards for the slow payer."
+        [], description="The list of cards for the tasks."
+    )
+    component_cards: List[CardComponentSchema] = Field(
+        [], description="The list of cards for the tasks."
     )

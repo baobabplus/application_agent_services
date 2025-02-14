@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
@@ -29,6 +29,10 @@ router = APIRouter()
         400: {
             "model": ErrorSchema,
             "description": "Invalid request or missing parameters.",
+        },
+        401: {
+            "model": ErrorSchema,
+            "description": "Unauthorized access. Please provide a valid access token.",
         },
         500: {"model": ErrorSchema, "description": "Internal server error."},
     },
@@ -65,6 +69,10 @@ async def get_employee_profile(
             "model": ErrorSchema,
             "description": "Invalid request or missing parameters.",
         },
+        401: {
+            "model": ErrorSchema,
+            "description": "Unauthorized access. Please provide a valid access token.",
+        },
         500: {"model": ErrorSchema, "description": "Internal server error."},
     },
 )
@@ -99,6 +107,10 @@ async def get_custom_bonus_by_employee_id(
             "model": ErrorSchema,
             "description": "Invalid report ID or request format.",
         },
+        401: {
+            "model": ErrorSchema,
+            "description": "Unauthorized access. Please provide a valid access token.",
+        },
         500: {"model": ErrorSchema, "description": "Internal server error."},
     },
 )
@@ -132,6 +144,10 @@ async def get_bonus_report_by_id(
         400: {
             "model": ErrorSchema,
             "description": "Invalid report ID or request format.",
+        },
+        401: {
+            "model": ErrorSchema,
+            "description": "Unauthorized access. Please provide a valid access token.",
         },
         500: {"model": ErrorSchema, "description": "Internal server error."},
     },
@@ -174,6 +190,10 @@ async def get_bonuses_details(
             "model": ErrorSchema,
             "description": "Invalid report ID or request format.",
         },
+        401: {
+            "model": ErrorSchema,
+            "description": "Unauthorized access. Please provide a valid access token.",
+        },
         500: {"model": ErrorSchema, "description": "Internal server error."},
     },
 )
@@ -181,10 +201,15 @@ async def get_slow_payer(
     user_context=Depends(verify_access_token),
     offset: int = Query(0, description="Offset for pagination", ge=0),
     limit: int = Query(10, description="Number of records to fetch", ge=10, le=100),
+    day_late: Optional[Literal["new", "urgent"]] = Query(
+        None, description="Filter by 'new' or 'urgent'"
+    ),
 ) -> TaskSchema:
     try:
         service = OdooService(user_context)
-        return service.get_slower_payer_client_service(limit=limit, offset=offset)
+        return service.get_slower_payer_client_service(
+            limit=limit, offset=offset, day_late=day_late
+        )
     except ValueError as e:
         return JSONResponse(content=e.args[0], status_code=400)
     except Exception as e:
@@ -207,6 +232,10 @@ async def get_slow_payer(
         400: {
             "model": ErrorSchema,
             "description": "Invalid report ID or request format.",
+        },
+        401: {
+            "model": ErrorSchema,
+            "description": "Unauthorized access. Please provide a valid access token.",
         },
         500: {"model": ErrorSchema, "description": "Internal server error."},
     },
