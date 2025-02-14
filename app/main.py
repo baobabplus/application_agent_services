@@ -55,9 +55,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    if exc.status_code == 400:
+    if exc.status_code in [400, 401]:
         return JSONResponse(
-            status_code=400,
+            status_code=exc.status_code,
             content={
                 "error": "bad_request",
                 "error_description": exc.detail

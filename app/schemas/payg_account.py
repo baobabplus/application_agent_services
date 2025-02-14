@@ -18,11 +18,19 @@ class PaygAccountSchema(BaseModel):
         description="The date and time when the Account was created.",
         example="2023-12-20T09:26:07",
     )
+    registration_date: datetime = Field(
+        ...,
+        description="The Registration date of the Account.",
+        example="2023-12-20T09:26:07",
+    )
     client_id: Many2One = Field(
         ..., description="A reference to the client associated with the account."
     )
     nb_days_overdue: int = Field(
         ..., description="The number of days the account is overdue.", example=8
+    )
+    account_status: str = Field(
+        ..., description="The status of the account.", example="ENABLED"
     )
 
 

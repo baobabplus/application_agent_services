@@ -29,6 +29,10 @@ This data can be used for rendering dropdowns or selection lists in the UI.
             "model": List[CountrySchema],
             "description": "List of available country",
         },
+        401: {
+            "model": ErrorSchema,
+            "description": "Unauthorized access. Please provide a valid access token.",
+        },
         500: {"model": ErrorSchema, "description": "Internal server error."},
     },
 )

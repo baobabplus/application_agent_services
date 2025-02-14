@@ -3,6 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
+from app.schemas.error import ErrorSchema
 from app.schemas.screen import SummarySchema, TasksSchema
 from app.services.main import fetch_homepage
 from app.services.main import get_homepage_tasks as fetch_homepage_tasks
@@ -18,7 +19,11 @@ router = APIRouter()
     responses={
         200: {
             "model": SummarySchema,
-        }
+        },
+        401: {
+            "model": ErrorSchema,
+            "description": "Unauthorized access. Please provide a valid access token.",
+        },
     },
 )
 async def get_homepage(user_context=Depends(verify_access_token)):
@@ -43,7 +48,11 @@ async def get_homepage(user_context=Depends(verify_access_token)):
         200: {
             "model": List[TasksSchema],
             "description": "List of tasks for the employee's homepage.",
-        }
+        },
+        401: {
+            "model": ErrorSchema,
+            "description": "Unauthorized access. Please provide a valid access token.",
+        },
     },
 )
 async def get_homepage_tasks(user_context=Depends(verify_access_token)):

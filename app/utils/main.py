@@ -17,6 +17,7 @@ from phonenumbers import NumberParseException, geocoder
 
 from app.core.odoo_config import settings as odoo_settings
 from app.core.otp_config import settings as otp_settings
+from app.schemas.global_schema import FilterSchema, TextTranslationSchema
 
 ALGORITHM = "HS256"
 
@@ -218,3 +219,38 @@ def filter_latest_event_by_status(data):
 
 def get_lang_from_company(company_id: int):
     return "en" if company_id == 12 else "fr"
+
+
+def get_filter(param, value, lang):
+    filter_list = [
+        FilterSchema(
+            value="new",
+            param="day_late",
+            label=TextTranslationSchema(en="New", fr="Nouveau"),
+        ),
+        FilterSchema(
+            value="urgent",
+            param="day_late",
+            label=TextTranslationSchema(en="Urgent", fr="Urgent"),
+        ),
+        FilterSchema(
+            value="sav",
+            param="category",
+            label=TextTranslationSchema(
+                en="After sales service", fr="Service après vente"
+            ),
+        ),
+        FilterSchema(
+            value="unreachable",
+            param="category",
+            label=TextTranslationSchema(en="Unreachable", fr="Injoignable"),
+        ),
+    ]
+    return next(
+        (
+            filter
+            for filter in filter_list
+            if filter.param == param and filter.value == value
+        ),
+        None,
+    )

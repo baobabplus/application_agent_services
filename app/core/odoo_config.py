@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     odoo_account_segmentation_slow_payer: str = Field(
         ..., alias="ODOO_SLOW_PAYER_SEGMENTATION_LIST"
     )
+    odoo_account_segmentation_hypercare: str = Field(
+        ..., alias="ODOO_HYPERCARE_SEGMENTATION_LIST"
+    )
     access_token_secret: str = Field(..., alias="ACCESS_TOKEN_SECRET")
     refresh_token_secret: str = Field(..., alias="REFRESH_TOKEN_SECRET")
     access_token_expire: int = Field(..., alias="ACCESS_TOKEN_EXPIRE")
